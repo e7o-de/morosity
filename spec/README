@@ -1,0 +1,11 @@
+All the directories in here contain files explaining a feature, the speciality
+of it and some tests. A file is split into several blocks, separated by a
+80 char dash line.
+------------------------------------------------------------------------------
+The following blocks are there (in this order):
+
+1. (not defined yet, will be some meta data for documentation compilation)
+2. Generic description (documentation part)
+3. An example template using the feature and being used for the test.
+4. The variables (JSON) available when executing the test
+5. The expected result
