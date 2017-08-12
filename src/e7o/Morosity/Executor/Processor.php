@@ -101,7 +101,7 @@ class Processor implements VariableContext
 		} else {
 			$varParams = null;
 		}
-		// Get value
+		// Check some special syntax (especially stuff which could contain dots) 
 		if (is_numeric($expression)) {
 			$val = (int)$expression;
 		} else if (is_float($expression)) {
@@ -160,61 +160,70 @@ class Processor implements VariableContext
 					}
 					break;
 			}
-		} else if (strlen($expression) > 10 && substr($expression, 0, 10) == 'RECURSION.') {
-			// Recursion variable
-			if ($context === null) {
-				throw new \Exception('Cannot access RECURSION variables without context');
-			}
-			// Remove characters
-			$expression = substr($expression, 10);
-			// Check for predefined values
-			switch ($expression) {
-				case '_deep':
-					$val = $context->getRecursionDeep();
-					break;
-				default: // Everything else
-					// Get array
-					$val = $context->getRecursion(0);
-					$val = $val[0][$expression];
-					break;
-			}
-		} else if ($expression == 'RECURSION') {
-			// Recursion variable
-			if ($context === null) {
-				throw new \Exception('Cannot access RECURSION variables without context');
-			}
-			$val = $context->getRecursion(0);
-			$val = $val[0];
-		} else if (isset($this->tempValues[$expression])) {
-			// Temporary user variable
-			$val = $this->tempValues[$expression];
-		} else if (isset($this->values[$expression])) {
-			// User variable, exists
-			// TODO: Use . instead of < for array access
-			$val = $this->values[$expression];
 		} else if (preg_match('/^([\'"]?)[0-9a-z]+\1\.\.([\'"]?)[0-9a-z]+\2$/i', $expression)) {
 			// Range: 2..5 or sth like this
 			$range = explode('..', $expression);
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
 			$val = substr($expression, 1, -1);
-		} else if ($expression[0] == ':') {
-			// Special character
-			switch ($expression) {
-				case ':pipe': $val = '|'; break;
-				case ':comma': $val = ','; break;
-				case ':colon': $val = ':'; break;
-				case ':lbrace': $val = '{'; break;
-				case ':rbrace': $val = '}'; break;
-				case ':at': $val = '@'; break;
-				default: $val = '';
-			}
-		} else if ($this->varHandler != null) {
-			// Ask the handler, it's not our problem
-			$val = $this->varHandler->resolveVariable($expression);
 		} else {
-			// Unknown variable
+			// Iterate through dots
 			$val = null;
+			foreach (explode('.', $expression) as $expressionSub) {
+				if ($expressionSub === '') {
+					$val = null; // shouldn't happen i guess
+				} else if (is_array($val) && isset($val[$expressionSub])) {
+					$val = $val[$expressionSub];
+				} else if (strlen($expressionSub) > 10 && substr($expressionSub, 0, 10) == 'RECURSION.') {
+					// Recursion variable
+					if ($context === null) {
+						throw new \Exception('Cannot access RECURSION variables without context');
+					}
+					// Remove characters
+					$expressionSub = substr($expressionSub, 10);
+					// Check for predefined values
+					switch ($expressionSub) {
+						case '_deep':
+							$val = $context->getRecursionDeep();
+							break;
+						default: // Everything else
+							// Get array
+							$val = $context->getRecursion(0);
+							$val = $val[0][$expressionSub];
+							break;
+					}
+				} else if ($expressionSub == 'RECURSION') {
+					// Recursion variable
+					if ($context === null) {
+						throw new \Exception('Cannot access RECURSION variables without context');
+					}
+					$val = $context->getRecursion(0);
+					$val = $val[0];
+				} else if (isset($this->tempValues[$expressionSub])) {
+					// Temporary user variable
+					$val = $this->tempValues[$expressionSub];
+				} else if (isset($this->values[$expressionSub])) {
+					// User variable, exists
+					$val = $this->values[$expressionSub];
+				} else if ($expressionSub[0] == ':') {
+					// Special character
+					switch ($expressionSub) {
+						case ':pipe': $val = '|'; break;
+						case ':comma': $val = ','; break;
+						case ':colon': $val = ':'; break;
+						case ':lbrace': $val = '{'; break;
+						case ':rbrace': $val = '}'; break;
+						case ':at': $val = '@'; break;
+						default: $val = '';
+					}
+				} else if ($this->varHandler != null) {
+					// Ask the handler, it's not our problem
+					$val = $this->varHandler->resolveVariable($expression);
+				} else {
+					// Unknown variable
+					$val = null;
+				}
+			}
 		}
 		// Post-process
 		if ($varParams !== null) {
