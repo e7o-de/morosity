@@ -24,15 +24,21 @@ while ($group = $dir->read()) {
 				$all = explode('------------------------------------------------------------------------------', $all);
 				$name = $group . '-' . $feature;
 				$templates[$name] = trim($all[2]);
-				$rendered = $m->render(
-					$name,
-					json_decode($all[3], true)
-				);
-				if ($rendered === trim($all[4])) {
-					echo '.';
+				$data = json_decode($all[3], true);
+				if ($data === null) {
+					$fails[] = [$name, json_last_error_msg()];
+					echo '?';
 				} else {
-					$fails[] = [trim($all[4]), $rendered];
-					echo 'F';
+					$rendered = $m->render(
+						$name,
+						$data
+					);
+					if ($rendered === trim($all[4])) {
+						echo '.';
+					} else {
+						$fails[] = [$name, trim($all[4]), $rendered];
+						echo 'F';
+					}
 				}
 			}
 		}
