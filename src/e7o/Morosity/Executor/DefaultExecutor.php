@@ -15,7 +15,6 @@ class DefaultExecutor implements ExecutionContext
 	private $parsed;
 	private $currentLoops, $jumpBack;
 	private $ifHadMatch, $ifType;
-	private $recursiveStack;
 	
 	public function __construct(VariableContext $context, array $commandHandler)
 	{
@@ -55,8 +54,6 @@ class DefaultExecutor implements ExecutionContext
 		$this->ifType = array();
 		// Deep of the if
 		$ifDeep = 0;
-		// Recursion
-		$this->recursiveStack = array();
 		// Go!
 		$commandCounter = 0;
 		while ($this->position < count($this->parsed)) {
@@ -184,38 +181,6 @@ class DefaultExecutor implements ExecutionContext
 							$ifDeep--;
 						}
 						break;
-					case 'recursive':
-						// Starts a recursion
-						// First, find the variable
-						$a = $this->evaluateExpression($commandParams);
-						// Put array and jumpback position on stack
-						$this->recursiveStack[] = array($a, $this->position);
-						break;
-					case 'recursion':
-						// Do a recursive call
-						// Get array
-						$rec = $this->evaluateExpression($commandParams);
-						// Is array with elements, especially the one we need for recursion?
-						if (is_array($rec) && count($rec) > 0) {
-							// Add array + remember jumpback position
-							$this->recursiveStack[] = array($rec, $this->position);
-							// Jump back (at the moment everytime the same)
-							$this->position = $this->recursiveStack[0][1];
-						}
-						break;
-					case 'endrecursive':
-						// Ends a recursion, get deep
-						end($this->recursiveStack);
-						$recDeep = count($this->recursiveStack) - 1;
-						// If we aren't ontop, we have to jump back
-						if ($recDeep > 0) {
-							// Jump back position is the RECURSION call
-							$rec = &$this->recursiveStack[key($this->recursiveStack)];
-							$this->position = $rec[1];
-						}
-						// Remove from stack
-						unset($this->recursiveStack[key($this->recursiveStack)]);
-						break;
 					case 'set':
 						// Define a variable/array
 						$parts = explode('=', $commandParams, 2);
@@ -250,23 +215,12 @@ class DefaultExecutor implements ExecutionContext
 		return current($this->currentLoops);
 	}
 	
-	public function getRecursion($above = 0)
-	{
-		$this->scrollBackInArray($this->recursiveStack, $above);
-		return current($this->recursiveStack);
-	}
-	
 	private function scrollBackInArray(&$array, $above)
 	{
 		end($array);
 		for ($i = 0; $i < $above; $i++) {
 			prev($array);
 		}
-	}
-	
-	public function getRecursionDeep()
-	{
-		return count($this->recursiveStack);
 	}
 	
 	private function checkConditions($conditionString)
@@ -431,7 +385,6 @@ class DefaultExecutor implements ExecutionContext
 				self::LOOP_COUNT => count($loopArr) - 1,
 				self::LOOP_ARRAY => &$loopArr,
 				self::LOOP_JUMPBACK => $this->position,
-				self::LOOP_RECURSIVE => ($command == 'RECURSIVE'),
 				self::LOOP_VARS => $loopVarNames,
 			];
 			if (count($loopArr) > 0) {

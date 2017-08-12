@@ -174,31 +174,6 @@ class Processor implements VariableContext
 					$val = null; // shouldn't happen i guess
 				} else if (is_array($val) && isset($val[$expressionSub])) {
 					$val = $val[$expressionSub];
-				} else if (strlen($expressionSub) > 10 && substr($expressionSub, 0, 10) == 'RECURSION.') {
-					// Recursion variable
-					if ($context === null) {
-						throw new \Exception('Cannot access RECURSION variables without context');
-					}
-					// Remove characters
-					$expressionSub = substr($expressionSub, 10);
-					// Check for predefined values
-					switch ($expressionSub) {
-						case '_deep':
-							$val = $context->getRecursionDeep();
-							break;
-						default: // Everything else
-							// Get array
-							$val = $context->getRecursion(0);
-							$val = $val[0][$expressionSub];
-							break;
-					}
-				} else if ($expressionSub == 'RECURSION') {
-					// Recursion variable
-					if ($context === null) {
-						throw new \Exception('Cannot access RECURSION variables without context');
-					}
-					$val = $context->getRecursion(0);
-					$val = $val[0];
 				} else if (isset($this->tempValues[$expressionSub])) {
 					// Temporary user variable
 					$val = $this->tempValues[$expressionSub];
