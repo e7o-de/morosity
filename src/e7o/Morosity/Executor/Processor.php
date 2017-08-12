@@ -71,12 +71,17 @@ class Processor implements VariableContext
 	
 	public function evaluateExpression($expression, ExecutionContext $context = null)
 	{
-		if ($expression === 'null') {
-			return null;
+		switch (strtolower($expression)) {
+			case 'false':
+				return false;
+			case 'true':
+				return true;
+			case 'null':
+				return null;
+			case '':
+				return '';
 		}
-		if (strlen($expression) == 0) {
-			return '';
-		}
+		
 		// Array?
 		if ($expression[0] == '[') {
 			// TODO: Improve functionality (quotation marks, sub-arrays etc.)
@@ -88,14 +93,6 @@ class Processor implements VariableContext
 			}
 			return $val;
 		}
-		// Do some array parsing stuff
-		$expression = str_replace('<', '|array,', $expression);
-		$expression = str_replace('\|array,', '<', $expression);
-		// Do also the . operator for array access (TODO: Nicer solution, better definition)
-		$expression = preg_replace('/^([^0-9|.]+)\./', '$1|array,', $expression);
-		$expression = str_replace('LOOP|array,', 'LOOP.', $expression);
-		$expression = str_replace('RECURSION|array,', 'RECURSION.', $expression);
-		$expression = str_replace('RECURSIVE|array,', 'RECURSIVE.', $expression);
 		// Split params
 		$i = strpos($expression, '|');
 		if ($i !== false) {
@@ -109,9 +106,7 @@ class Processor implements VariableContext
 			$val = (int)$expression;
 		} else if (is_float($expression)) {
 			$val = (float)$expression;
-		} else if ($expression[0] == "'" || $expression[0] == '"') {
-			$val = substr($expression, 1, -1);
-		} else if (strlen($expression) > 4 && substr($expression, 0, 5) == 'LOOP.') {
+		} else if (strlen($expression) >= 5 && substr($expression, 0, 5) == 'loop.') {
 			// Loop variable, first check context
 			if ($context === null) {
 				throw new \Exception('Cannot access LOOP variables without context');
@@ -123,23 +118,33 @@ class Processor implements VariableContext
 			// Fetch the matching loop
 			$loop = $context->getLoop($dots);
 			// Check for predefined values
+			$val = 0;
 			switch ($expression) {
-				case '_index': // Current index
-					$val = $loop[ExecutionContext::LOOP_CURRENT_INDEX];
+				// Current index
+				case 'index':
+					$val = 1;
+				case 'index0':
+					$val += $loop[ExecutionContext::LOOP_CURRENT_INDEX];
 					break;
-				case '_remaining': // Remaining elements
-					$val = $loop[ExecutionContext::LOOP_COUNT] - $loop[ExecutionContext::LOOP_CURRENT_INDEX];
+				// Remaining elements
+				case 'revindex':
+					$val = -1;
+				case 'revindex0':
+					$val += $loop[ExecutionContext::LOOP_COUNT] - $loop[ExecutionContext::LOOP_CURRENT_INDEX];
 					break;
-				case '_total': // Total number
+				// Total count of elements
+				case 'length':
 					$val = $loop[ExecutionContext::LOOP_COUNT] + 1;
 					break;
-				case '_first':
+				// Positions
+				case 'first':
 					$val = (bool)($loop[ExecutionContext::LOOP_CURRENT_INDEX] == 0);
 					break;
-				case '_last':
+				case 'last':
 					$val = (bool)($loop[ExecutionContext::LOOP_CURRENT_INDEX] == $loop[ExecutionContext::LOOP_COUNT]);
 					break;
-				default: // Everything else
+				// Everything else
+				default:
 					// Get array
 					if (!is_array($loop[ExecutionContext::LOOP_ARRAY])) {
 						$val = $loop[ExecutionContext::LOOP_ARRAY];
@@ -187,11 +192,12 @@ class Processor implements VariableContext
 			// User variable, exists
 			// TODO: Use . instead of < for array access
 			$val = $this->values[$expression];
-		} else if (preg_match('/^[0-9]+\.\.[0-9]+$/', $expression)) {
+		} else if (preg_match('/^([\'"]?)[0-9a-z]+\1\.\.([\'"]?)[0-9a-z]+\2$/i', $expression)) {
 			// Range: 2..5 or sth like this
-			// TODO: Allow variables being part of expression
 			$range = explode('..', $expression);
-			$val = range((int)$range[0], (int)$range[1]);
+			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
+		} else if ($expression[0] == "'" || $expression[0] == '"') {
+			$val = substr($expression, 1, -1);
 		} else if ($expression[0] == ':') {
 			// Special character
 			switch ($expression) {

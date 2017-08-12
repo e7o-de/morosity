@@ -1,8 +1,8 @@
 ------------------------------------------------------------------------------
-You can check where in the loop you are.
+There are some meta information available about loops.
 ------------------------------------------------------------------------------
-{% for i in v1 %}{% if loop.first %}x{% endif %}{% if loop.last %}y{% endif %}{{ loop.index }}{% endfor %}
+{% for i in v1 %}{{ loop.index0 }}{{ loop.revindex0 }}{{ loop.length }}{% endfor %}
 ------------------------------------------------------------------------------
-{"v1": ["a", "b", "c"]}
+{"v1": ["a", "b"]}
 ------------------------------------------------------------------------------
-x12y3
+012102

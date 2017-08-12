@@ -142,8 +142,6 @@ class DefaultExecutor implements ExecutionContext
 						}
 						break;
 					case 'if':
-					case 'ifand':
-					case 'ifor':
 						if ($ignoreIfMode) {
 							// Ignore this one but count it
 							$ignoreDeeperIfKeywords++;
@@ -189,14 +187,14 @@ class DefaultExecutor implements ExecutionContext
 					case 'recursive':
 						// Starts a recursion
 						// First, find the variable
-						$a = $this->context->evaluateExpression($commandParams, $this);
+						$a = $this->evaluateExpression($commandParams);
 						// Put array and jumpback position on stack
 						$this->recursiveStack[] = array($a, $this->position);
 						break;
 					case 'recursion':
 						// Do a recursive call
 						// Get array
-						$rec = $this->context->evaluateExpression($commandParams, $this);
+						$rec = $this->evaluateExpression($commandParams);
 						// Is array with elements, especially the one we need for recursion?
 						if (is_array($rec) && count($rec) > 0) {
 							// Add array + remember jumpback position
@@ -221,7 +219,7 @@ class DefaultExecutor implements ExecutionContext
 					case 'set':
 						// Define a variable/array
 						$parts = explode('=', $commandParams, 2);
-						$this->context->addValue(trim($parts[0]), $this->context->evaluateExpression(trim($parts[1]), $this));
+						$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
 						break;
 					default:
 						if (isset($this->commandHandler[$commandType])) {
@@ -233,7 +231,7 @@ class DefaultExecutor implements ExecutionContext
 						}
 				}
 			} else if (substr($currentLine, 0, 2) == '{{') {
-				$value = $this->context->evaluateExpression(trim(substr($currentLine, 2)), $this);
+				$value = $this->evaluateExpression(trim(substr($currentLine, 2)));
 				$result .= $value;
 			} else if (substr($currentLine, 0, 2) == '{#') {
 				// Ignore
@@ -278,7 +276,7 @@ class DefaultExecutor implements ExecutionContext
 		}
 		
 		$mode = end($this->ifType);
-		switch ($mode) {
+		switch ($mode) { // todo: remove
 			case 'ifand': $mode = false; break;
 			case 'ifor': $mode = true; break;
 			default: $mode = false;
@@ -304,7 +302,7 @@ class DefaultExecutor implements ExecutionContext
 		}
 		// Check operators; we need to ensure the correct order of the operators
 		// (> behind >= to prevent false detections)
-		$operators = array('==', '!=', '<=', '>=', '<', '>', ' IN ', ' NOTIN ', ' EMPTY', ' NOTEMPTY', ' NUMERIC', ' ODD', ' EVEN');
+		$operators = array('==', '!=', '<=', '>=', '<', '>', ' IN ', ' NOTIN ', ' is');
 		$found = false;
 		foreach ($operators as $op) {
 			if (strpos($condition, $op) !== false) {
@@ -314,65 +312,74 @@ class DefaultExecutor implements ExecutionContext
 		}
 		if ($found) {
 			$v1 = trim(substr($condition, 0, strpos($condition, $op)));
-			$v2 = trim(substr($condition, strpos($condition, $op)+strlen($op)));
+			$v2 = trim(substr($condition, strpos($condition, $op) + strlen($op)));
 		} else {
 			$v1 = trim($condition);
-			$op = '__HAS_VALUE';
+			$op = '__has_value';
 			$v2 = null;
 		}
 		
 		if ($v1 !== null) {
-			$v1 = $this->context->evaluateExpression($v1, $this);
-		}
-		if ($v2 !== null) {
-			$v2 = $this->context->evaluateExpression($v2, $this);
+			$v1 = $this->evaluateExpression($v1);
 		}
 		
-		switch (trim($op)) {
-			case '==':
-				return (bool)($v1 == $v2) ^ $not;
-			case '!=':
-				return (bool)($v1 != $v2) ^ $not;
-			case '<=':
-				return (bool)($v1 <= $v2) ^ $not;
-			case '>=':
-				return (bool)($v1 >= $v2) ^ $not;
-			case '<':
-				return (bool)($v1 < $v2) ^ $not;
-			case '>':
-				return (bool)($v1 > $v2) ^ $not;
-			case 'IN':
-				if (is_array($v2)) {
-					return in_array($v1, $v2) ^ $not;
-				} else {
-					return (strpos($v2, $v1) !== false) ^ $not;
-				}
-			case 'NOTIN':
-				if (is_array($v2)) {
-					return !in_array($v1, $v2) ^ $not;
-				} else {
-					return (strpos($v2, $v1) === false) ^ $not;
-				}
-			case 'EMPTY':
-				return (empty($v1)) ^ $not;
-			case 'NOTEMPTY':
-				return (!empty($v1)) ^ $not;
-			case 'NUMERIC':
-				return (is_numeric($v1)) ^ $not;
-			case 'ODD':
-				return ($v1 % 2 == 1) ^ $not;
-			case 'EVEN':
-				return ($v1 % 2 == 0) ^ $not;
-			case '__HAS_VALUE': // Internal keyword
-				$hasValue =
-					is_array($v1)
-					|| is_string($v1) && strlen($v1) > 0
-					|| is_object($v1)
-					|| is_numeric($v1)
-				;
-				return $hasValue ^ $not;
-			default:
-				return false ^ $not;
+		if ($op === 'is') {
+			switch ($v2) {
+				case 'empty':
+					return empty($v1);
+				case 'not empty':
+					return !empty($v1);
+				case 'odd':
+					return ($v1 % 2 == 1) ^ $not;
+				case 'even':
+					return ($v1 % 2 == 0) ^ $not;
+				case 'numeric':
+					return (is_numeric($v1)) ^ $not;
+				default:
+					// todo, unknown comparision
+			}
+		} else {
+			if ($v2 !== null) {
+				$v2 = $this->evaluateExpression($v2);
+			}
+			
+			switch (trim($op)) {
+				case '==':
+					return (bool)($v1 == $v2) ^ $not;
+				case '!=':
+					return (bool)($v1 != $v2) ^ $not;
+				case '<=':
+					return (bool)($v1 <= $v2) ^ $not;
+				case '>=':
+					return (bool)($v1 >= $v2) ^ $not;
+				case '<':
+					return (bool)($v1 < $v2) ^ $not;
+				case '>':
+					return (bool)($v1 > $v2) ^ $not;
+				case 'IN':
+					if (is_array($v2)) {
+						return in_array($v1, $v2) ^ $not;
+					} else {
+						return (strpos($v2, $v1) !== false) ^ $not;
+					}
+				case 'NOTIN':
+					if (is_array($v2)) {
+						return !in_array($v1, $v2) ^ $not;
+					} else {
+						return (strpos($v2, $v1) === false) ^ $not;
+					}
+				case '__has_value': // Internal keyword
+					$hasValue =
+						is_array($v1)
+						|| is_string($v1) && strlen($v1) > 0
+						|| is_object($v1)
+						|| is_numeric($v1)
+						|| $v1 === true
+					;
+					return $hasValue ^ $not;
+				default:
+					return false ^ $not;
+			}
 		}
 	}
 	
@@ -395,8 +402,7 @@ class DefaultExecutor implements ExecutionContext
 		
 		// Get array to loop over
 		// TODO: If not set throw syntax error
-		$loopArr = $this->context->evaluateExpression($parts[1], $this);
-		
+		$loopArr = $this->evaluateExpression($parts[1]);
 		// Converting objects if known
 		if ($loopArr instanceof \PDOStatement) {
 			$newLoopArr = array();
@@ -457,5 +463,10 @@ class DefaultExecutor implements ExecutionContext
 		foreach ($arr as $val) {
 			$this->context->addValue($val[0], $val[1]);
 		}
+	}
+	
+	private function evaluateExpression($expression)
+	{
+		return $this->context->evaluateExpression($expression, $this);
 	}
 }

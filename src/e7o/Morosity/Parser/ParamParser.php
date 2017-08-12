@@ -12,7 +12,6 @@ class ParamParser
 	public function __construct(VariableContext $context = null)
 	{
 		$this->context = $context;
-		#				$param = $processor->evaluateExpression($param);;
 	}
 	
 	public function parse($params)
