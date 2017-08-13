@@ -14,8 +14,10 @@ class DefaultExecutor implements ExecutionContext
 	// Execution
 	private $position;
 	private $parsed;
-	private $currentLoops, $jumpBack;
-	private $ifHadMatch, $ifType;
+	private $currentLoops;
+	// Array for remembering line numbers to which line we have to jump back
+	private $jumpBack;
+	private $ifHadMatch;
 	
 	public function __construct(VariableContext $context, Environment $env, array $commandHandler)
 	{
@@ -31,47 +33,22 @@ class DefaultExecutor implements ExecutionContext
 	 */
 	public function render($template)
 	{
-		// Split into pieces
-		$this->parsed = new Tokenizer($template);
+		$this->parsed = Tokenizer::parse($template);
 		
-		// Parse information
-		// Collect results
 		$result = '';
-		// Array for remembering line numbers to which line we have to jump back
 		$this->jumpBack = array();
-		// A stack for active loops
 		$this->currentLoops = array();
 		// Set to -1 that the first increment doesn't jump after the 0 :)
 		$this->position = -1;
-		// Saves if one condition was matched; array for nested.
 		$this->ifHadMatch = array();
-		// Empty variables
 		$this->variables = [];
-		// Ignore lines (non matching if-branches)
 		$ignoreTillNextIfKeyword = array();
-		// Ignore nested structures if necessary
 		$ignoreDeeperIfKeywords = 0;
 		$ignoreTillNextEndfor = 0;
-		// Type of IF (normal, and, or ...)
-		$this->ifType = array();
-		// Deep of the if
 		$ifDeep = 0;
-		// Go!
 		$executor = null;
-		$commandCounter = 0;
-		while ($this->position < count($this->parsed)) {
-			// Prevent infinite loops; increase this value if you really have an
-			// use case for that.
-			if ($commandCounter++ > 250000) {
-				throw new \Exception('Too much commands executed, killing to prevent infinite loop');
-			}
-			// Increment for loop
-			$this->position++;
-			
-			if (!isset($this->parsed[$this->position])) {
-				continue;
-			}
-			// Read line
+		$loopLimit = count($this->parsed) - 1;
+		while ($this->position++ < $loopLimit) {
 			$currentLine = $this->parsed[$this->position];
 			
 			// Something to ignore?
@@ -80,7 +57,7 @@ class DefaultExecutor implements ExecutionContext
 			if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
 				$ignoreIfMode = false;
 			} else {
-				$ignoreIfMode = count($ignoreTillNextIfKeyword) > 0 && $ignoreTillNextIfKeyword[$ifDeep];
+				$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
 			}
 			if (
 				$ignoreIfMode
@@ -103,7 +80,7 @@ class DefaultExecutor implements ExecutionContext
 			// Check type
 			if (substr($currentLine, 0, 2) == '{%') {
 				$commandType = explode(' ', trim(substr($currentLine, 2)), 2);
-				$commandParams = isset($commandType[1]) ? $commandType[1] : ''; // Might be a syntax error in all cases if not given?
+				$commandParams = isset($commandType[1]) ? $commandType[1] : '';
 				$commandType = strtolower(trim($commandType[0]));
 				switch ($commandType) {
 					case 'for':
@@ -150,7 +127,6 @@ class DefaultExecutor implements ExecutionContext
 							$ifDeep++;
 							$this->ifHadMatch[$ifDeep] = false;
 							$ignoreTillNextIfKeyword[$ifDeep] = false;
-							$this->ifType[$ifDeep] = $commandType;
 						}
 					case 'elseif':
 					case 'else':
@@ -180,7 +156,6 @@ class DefaultExecutor implements ExecutionContext
 							// Remove from stack
 							$this->ifHadMatch[$ifDeep] = null;
 							$ignoreTillNextIfKeyword[$ifDeep] = null;
-							$this->ifType[$ifDeep] = null;
 							$ifDeep--;
 						}
 						break;
@@ -225,7 +200,7 @@ class DefaultExecutor implements ExecutionContext
 				$result .= $currentLine;
 			}
 		}
-
+		
 		return $result;
 	}
 	
@@ -249,12 +224,8 @@ class DefaultExecutor implements ExecutionContext
 			return true;
 		}
 		
-		$mode = end($this->ifType);
-		switch ($mode) { // todo: remove
-			case 'ifand': $mode = false; break;
-			case 'ifor': $mode = true; break;
-			default: $mode = false;
-		}
+		// for AND by default. TODO, needs rework, also to support operators etc.
+		$mode = false;
 		
 		$conditions = explode(';', $conditionString);
 		foreach ($conditions as $cond) {
@@ -276,7 +247,7 @@ class DefaultExecutor implements ExecutionContext
 		}
 		// Check operators; we need to ensure the correct order of the operators
 		// (> behind >= to prevent false detections)
-		$operators = array('==', '!=', '<=', '>=', '<', '>', ' IN ', ' NOTIN ', ' is');
+		$operators = array('==', '!=', '<=', '>=', '<', '>', ' in ', ' notin ', ' is');
 		$found = false;
 		foreach ($operators as $op) {
 			if (strpos($condition, $op) !== false) {
@@ -330,13 +301,13 @@ class DefaultExecutor implements ExecutionContext
 					return (bool)($v1 < $v2) ^ $not;
 				case '>':
 					return (bool)($v1 > $v2) ^ $not;
-				case 'IN':
+				case 'in':
 					if (is_array($v2)) {
 						return in_array($v1, $v2) ^ $not;
 					} else {
 						return (strpos($v2, $v1) !== false) ^ $not;
 					}
-				case 'NOTIN':
+				case 'notin':
 					if (is_array($v2)) {
 						return !in_array($v1, $v2) ^ $not;
 					} else {
@@ -393,10 +364,9 @@ class DefaultExecutor implements ExecutionContext
 		
 		// Init loop
 		$this->storeVariables($loopVarNames);
-		# todo: loopArr nie null weil if(empty)
 		if (!is_array($loopArr) && !($loopArr instanceof \Traversable)) {
 			// Unknown variable
-			throw new \Exception('Bad LOOP initialisator: ' . $command);
+			throw new \Exception('Bad loop initialisator: ' . $command);
 		} else {
 			// Set info
 			reset($loopArr);
