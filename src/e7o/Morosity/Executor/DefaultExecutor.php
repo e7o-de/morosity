@@ -43,6 +43,7 @@ class DefaultExecutor implements ExecutionContext
 		$this->ifHadMatch = array();
 		$this->variables = [];
 		$ignoreTillNextIfKeyword = array();
+		$ignoreIfMode = false;
 		$ignoreDeeperIfKeywords = 0;
 		$ignoreTillNextEndfor = 0;
 		$ifDeep = 0;
@@ -51,14 +52,6 @@ class DefaultExecutor implements ExecutionContext
 		while ($this->position++ < $loopLimit) {
 			$currentLine = $this->parsed[$this->position];
 			
-			// Something to ignore?
-			// If we are in a branch we have to ignore, we can continue with
-			// the next step of our loop.
-			if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
-				$ignoreIfMode = false;
-			} else {
-				$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
-			}
 			if (
 				$ignoreIfMode
 				&& !is_array($currentLine)
@@ -127,6 +120,7 @@ class DefaultExecutor implements ExecutionContext
 							$ifDeep++;
 							$this->ifHadMatch[$ifDeep] = false;
 							$ignoreTillNextIfKeyword[$ifDeep] = false;
+							$ignoreIfMode = false;
 						}
 					case 'elseif':
 					case 'else':
@@ -135,6 +129,7 @@ class DefaultExecutor implements ExecutionContext
 							$match = $this->ifHadMatch[$ifDeep];
 							// Set ignore to true in advance
 							$ignoreTillNextIfKeyword[$ifDeep] = true;
+							$ignoreIfMode = true;
 							// When there was never a matching in this case
 							if (!$match) {
 								// Process conditions
@@ -145,6 +140,7 @@ class DefaultExecutor implements ExecutionContext
 									$this->ifHadMatch[$ifDeep] = true;
 									// Don't ignore this block
 									$ignoreTillNextIfKeyword[$ifDeep] = false;
+									$ignoreIfMode = false;
 								}
 							}
 						}
@@ -157,6 +153,11 @@ class DefaultExecutor implements ExecutionContext
 							$this->ifHadMatch[$ifDeep] = null;
 							$ignoreTillNextIfKeyword[$ifDeep] = null;
 							$ifDeep--;
+							if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
+								$ignoreIfMode = false;
+							} else {
+								$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
+							}
 						}
 						break;
 					case 'set':
