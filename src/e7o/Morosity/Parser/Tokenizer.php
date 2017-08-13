@@ -42,9 +42,7 @@ class Tokenizer implements \ArrayAccess, \Countable
 				$oldi = $i;
 			} else {
 				// Parse error.
-				$this->parsed[] = substr($tmpl, $i);
-				$this->parsed[] = '(MISSING END TAG)';
-				break;
+				throw new Exception('Missing end tag around #' . $i);
 			}
 		}
 	}
@@ -84,12 +82,13 @@ class Tokenizer implements \ArrayAccess, \Countable
 	
 	public function offsetSet($offset, $value)
 	{
-		$this->parsed[$offset] = $value;
+		throw new Exception('Manipulation not allowed');
 	}
 	
 	public function offsetUnset($offset)
 	{
-		unset($this->parsed[$offset]);
+		// Same as offsetSet
+		throw new Exception('Manipulation not allowed');
 	}
 	
 	public function count()
