@@ -13,11 +13,16 @@ spl_autoload_register(function ($class) {
 	}
 });
 
-class TestLoader
+class TestLoader implements \e7o\Morosity\Loader\Loader
 {
 	public function load($name)
 	{
 		global $templates;
+		
+		if (!isset($templates[$name])) {
+			return '';
+		}
+		
 		return $templates[$name];
 	}
 }

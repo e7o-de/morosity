@@ -2,7 +2,9 @@
 
 namespace e7o\Morosity\Executor;
 
-class Processor implements VariableContext
+use \e7o\Morosity\Loader\Loader;
+
+class Processor implements VariableContext, Environment
 {
 	// Preparation
 	private $values;
@@ -11,6 +13,7 @@ class Processor implements VariableContext
 	// Extensions
 	private $varHandler = null;
 	private $commandHandler = [];
+	private $loader;
 	
 	public function __construct()
 	{
@@ -21,6 +24,16 @@ class Processor implements VariableContext
 	public function setVariableResolver($v)
 	{
 		$this->varHandler = $v;
+	}
+	
+	public function setLoader(Loader $loader)
+	{
+		$this->loader = $loader;
+	}
+	
+	public function getLoader(): \e7o\Morosity\Loader\Loader
+	{
+		return $this->loader;
 	}
 	
 	public function setCommandHandler($forType, Handler $handler)
@@ -65,7 +78,7 @@ class Processor implements VariableContext
 	
 	public function render($template)
 	{
-		$executor = new DefaultExecutor($this, $this->commandHandler);
+		$executor = new DefaultExecutor($this, $this, $this->commandHandler);
 		return $executor->render($template);
 	}
 	

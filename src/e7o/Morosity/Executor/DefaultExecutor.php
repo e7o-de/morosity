@@ -9,6 +9,7 @@ class DefaultExecutor implements ExecutionContext
 	// Data accessor
 	protected $context;
 	protected $commandHandler;
+	protected $environment;
 	
 	// Execution
 	private $position;
@@ -16,9 +17,10 @@ class DefaultExecutor implements ExecutionContext
 	private $currentLoops, $jumpBack;
 	private $ifHadMatch, $ifType;
 	
-	public function __construct(VariableContext $context, array $commandHandler)
+	public function __construct(VariableContext $context, Environment $env, array $commandHandler)
 	{
 		$this->context = $context;
+		$this->environment = $env;
 		$this->commandHandler = $commandHandler;
 	}
 	
@@ -55,6 +57,7 @@ class DefaultExecutor implements ExecutionContext
 		// Deep of the if
 		$ifDeep = 0;
 		// Go!
+		$executor = null;
 		$commandCounter = 0;
 		while ($this->position < count($this->parsed)) {
 			// Prevent infinite loops; increase this value if you really have an
@@ -185,6 +188,23 @@ class DefaultExecutor implements ExecutionContext
 						// Define a variable/array
 						$parts = explode('=', $commandParams, 2);
 						$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
+						break;
+					case 'include':
+						if (empty($executor)) {
+							$executor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
+						}
+						$names = $this->evaluateExpression($commandParams);
+						if (!is_array($names)) {
+							$names = [$names];
+						}
+						$template = '';
+						foreach ($names as $tryName) {
+							$template = $this->environment->getLoader()->load($tryName);
+							if (!empty($template)) {
+								break;
+							}
+						}
+						$result .= $executor->render($template);
 						break;
 					default:
 						if (isset($this->commandHandler[$commandType])) {

@@ -4,7 +4,10 @@ include('tmp_autoloader.php');
 
 use \e7o\Morosity\Morosity;
 
-$templates = [];
+$templates = [
+	'dummy.dummy' => '-{{ dummy }}-',
+	'dummy.i' => '-{{ i }}-',
+];
 
 $ctTotal = 0;
 $dir = dir(__DIR__);
