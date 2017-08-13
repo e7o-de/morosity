@@ -15,7 +15,7 @@ spl_autoload_register(function ($class) {
 
 class TestLoader implements \e7o\Morosity\Loader\Loader
 {
-	public function load($name)
+	public function load(string $name)
 	{
 		global $templates;
 		

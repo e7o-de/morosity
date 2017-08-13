@@ -4,5 +4,5 @@ namespace e7o\Morosity\Loader;
 
 interface Loader
 {
-	public function load($name);
+	public function load(string $name);
 }
