@@ -50,29 +50,29 @@ class DefaultExecutor implements ExecutionContext
 		$executor = null;
 		$loopLimit = count($this->parsed) - 1;
 		while ($this->position++ < $loopLimit) {
-			$currentLine = $this->parsed[$this->position];
+			$currentToken = $this->parsed[$this->position];
 			
 			if (
 				$ignoreIfMode
-				&& !is_array($currentLine)
-				&& substr($currentLine, 0, 5) != '{% if'
-				&& substr($currentLine, 0, 7) != '{% else'
-				&& substr($currentLine, 0, 8) != '{% endif'
+				&& !is_array($currentToken)
+				&& substr($currentToken, 0, 5) != '{% if'
+				&& substr($currentToken, 0, 7) != '{% else'
+				&& substr($currentToken, 0, 8) != '{% endif'
 			) {
 				continue;
 			}
 			if ($ignoreTillNextEndfor > 0) {
-				if (!isset($currentLine)) {
-				} else if (substr($currentLine, 0, 6) == '{% for') {
+				if (!isset($currentToken)) {
+				} else if (substr($currentToken, 0, 6) == '{% for') {
 					$ignoreTillNextEndfor++;
-				} else if (substr($currentLine, 0, 9) == '{% endfor') {
+				} else if (substr($currentToken, 0, 9) == '{% endfor') {
 					$ignoreTillNextEndfor--;
 				}
 				continue;
 			}
 			// Check type
-			if (substr($currentLine, 0, 2) == '{%') {
-				$commandType = explode(' ', trim(substr($currentLine, 2)), 2);
+			if (substr($currentToken, 0, 2) == '{%') {
+				$commandType = explode(' ', trim(substr($currentToken, 2)), 2);
 				$commandParams = isset($commandType[1]) ? $commandType[1] : '';
 				$commandType = strtolower(trim($commandType[0]));
 				switch ($commandType) {
@@ -191,14 +191,14 @@ class DefaultExecutor implements ExecutionContext
 							throw new \Exception('Unknown command: ' . $commandType);
 						}
 				}
-			} else if (substr($currentLine, 0, 2) == '{{') {
-				$value = $this->evaluateExpression(trim(substr($currentLine, 2)));
+			} else if (substr($currentToken, 0, 2) == '{{') {
+				$value = $this->evaluateExpression(trim(substr($currentToken, 2)));
 				$result .= $value;
-			} else if (substr($currentLine, 0, 2) == '{#') {
+			} else if (substr($currentToken, 0, 2) == '{#') {
 				// Ignore
 			} else {
 				// No special code, simply add it
-				$result .= $currentLine;
+				$result .= $currentToken;
 			}
 		}
 		
