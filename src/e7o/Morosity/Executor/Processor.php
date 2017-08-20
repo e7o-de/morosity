@@ -8,22 +8,17 @@ class Processor implements VariableContext, Environment
 {
 	// Preparation
 	private $values;
-	private $tempValues;
 	
 	// Extensions
-	private $varHandler = null;
 	private $commandHandler = [];
 	private $loader;
+	
+	// Additonal values
+	private $stack = [];
 	
 	public function __construct()
 	{
 		$this->values = array();
-		$this->tempValues = array();
-	}
-	
-	public function setVariableResolver($v)
-	{
-		$this->varHandler = $v;
 	}
 	
 	public function setLoader(Loader $loader)
@@ -66,14 +61,14 @@ class Processor implements VariableContext, Environment
 		$this->values = $valuesArray;
 	}
 	
-	public function addTempVar($name, $value)
+	public function pushStack(array $data)
 	{
-		$this->tempValues[$name] = $value;
+		$this->stack[count($this->stack)] = $data;
 	}
 	
-	public function cleanTempVars()
+	public function popStack()
 	{
-		$this->tempValues = array();
+		unset($this->stack[count($this->stack) - 1]);
 	}
 	
 	public function render($template)
@@ -109,10 +104,10 @@ class Processor implements VariableContext, Environment
 		// Split params
 		$i = strpos($expression, '|');
 		if ($i !== false) {
-			$varParams = substr($expression, $i + 1);
+			$pipeModifier = substr($expression, $i + 1);
 			$expression = substr($expression, 0, $i);
 		} else {
-			$varParams = null;
+			$pipeModifier = null;
 		}
 		// Check some special syntax (especially stuff which could contain dots) 
 		if (is_numeric($expression)) {
@@ -179,6 +174,21 @@ class Processor implements VariableContext, Environment
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
 			$val = substr($expression, 1, -1);
+		} else if (!empty($context) && (preg_match('/^[a-z0-9_]+ *\(/i', $expression))) {
+			// Macro call
+			$pos = strpos($expression, '(');
+			$name = trim(substr($expression, 0, $pos));
+			if (!$context->hasMacro($name)) {
+				throw new \Exception('Unknown macro ' . $name . ' called');
+			}
+			$params = substr($expression, $pos + 1);
+			$params = substr($params, 0, strpos($params, ')'));
+			$args = [];
+			// todo: explode should care about sub-arrays etc. ;)
+			foreach (explode(',', $params) as $param) {
+				$args[] = $this->evaluateExpression(trim($param), $context);
+			}
+			$val = $context->callMacro($name, $args);
 		} else {
 			// Iterate through dots
 			$val = null;
@@ -187,12 +197,6 @@ class Processor implements VariableContext, Environment
 					$val = null; // shouldn't happen i guess
 				} else if (is_array($val) && isset($val[$expressionSub])) {
 					$val = $val[$expressionSub];
-				} else if (isset($this->tempValues[$expressionSub])) {
-					// Temporary user variable
-					$val = $this->tempValues[$expressionSub];
-				} else if (isset($this->values[$expressionSub])) {
-					// User variable, exists
-					$val = $this->values[$expressionSub];
 				} else if ($expressionSub[0] == ':') {
 					// Special character
 					switch ($expressionSub) {
@@ -204,18 +208,30 @@ class Processor implements VariableContext, Environment
 						case ':at': $val = '@'; break;
 						default: $val = '';
 					}
-				} else if ($this->varHandler != null) {
-					// Ask the handler, it's not our problem
-					$val = $this->varHandler->resolveVariable($expression);
 				} else {
-					// Unknown variable
-					$val = null;
+					$found = false;
+					for ($i = count($this->stack) - 1; $i >= 0; $i--) {
+						if (isset($this->stack[$i][$expressionSub])) {
+							$val = $this->stack[$i][$expressionSub];
+							$found = true;
+							break;
+						}
+					}
+					if ($found === false) {
+						if (isset($this->values[$expressionSub])) {
+							// User variable, exists
+							$val = $this->values[$expressionSub];
+						} else {
+							// Unknown variable
+							$val = null;
+						}
+					}
 				}
 			}
 		}
 		// Post-process
-		if ($varParams !== null) {
-			$val = $this->processParams($val, explode('|', $varParams));
+		if ($pipeModifier !== null) {
+			$val = $this->processParams($val, explode('|', $pipeModifier));
 		}
 		// Done
 		return $val;

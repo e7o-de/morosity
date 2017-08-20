@@ -12,12 +12,12 @@ class DefaultExecutor implements ExecutionContext
 	protected $environment;
 	
 	// Execution
-	private $position;
 	private $parsed;
 	private $currentLoops;
 	// Array for remembering line numbers to which line we have to jump back
 	private $jumpBack;
 	private $ifHadMatch;
+	private $macros;
 	
 	public function __construct(VariableContext $context, Environment $env, array $commandHandler)
 	{
@@ -35,23 +35,30 @@ class DefaultExecutor implements ExecutionContext
 	{
 		$this->parsed = Tokenizer::parse($template);
 		
-		$result = '';
 		$this->jumpBack = array();
 		$this->currentLoops = array();
-		// Set to -1 that the first increment doesn't jump after the 0 :)
-		$this->position = -1;
-		$this->ifHadMatch = array();
+		$this->ifHadMatch = [];
 		$this->variables = [];
-		$ignoreTillNextIfKeyword = array();
+		$this->macros = [];
+		
+		return $this->renderFromTo(0, count($this->parsed) - 1);
+	}
+	
+	private function renderFromTo($from, $to)
+	{
+		$result = '';
+		$ignoreTillNextIfKeyword = [];
 		$ignoreIfMode = false;
 		$ignoreDeeperIfKeywords = 0;
 		$ignoreTillNextEndfor = 0;
 		$ifDeep = 0;
 		$executor = null;
-		$loopLimit = count($this->parsed) - 1;
-		while ($this->position++ < $loopLimit) {
-			$currentToken = $this->parsed[$this->position];
+		// Set to $from-1 that the first increment doesn't ignore the first command
+		$position = $from - 1;
+		while ($position++ < $to) {
+			$currentToken = &$this->parsed[$position];
 			
+			// todo: check in parser for type and allow multiple spaces etc.
 			if (
 				$ignoreIfMode
 				&& !is_array($currentToken)
@@ -78,7 +85,7 @@ class DefaultExecutor implements ExecutionContext
 				switch ($commandType) {
 					case 'for':
 						// Find current loop
-						$doLoop = $this->initLoop($commandParams);
+						$doLoop = $this->initLoop($commandParams, $position);
 						if ($doLoop == false) {
 							// Fast-forward to stuf after the loop
 							$ignoreTillNextEndfor = 1;
@@ -94,8 +101,9 @@ class DefaultExecutor implements ExecutionContext
 							// Yes: Just increase the counter and go back to start of the loop
 							$loop[ExecutionContext::LOOP_CURRENT_INDEX]++;
 							next($loop[ExecutionContext::LOOP_ARRAY]);
-							$this->position = $loop[ExecutionContext::LOOP_JUMPBACK];
+							$position = $loop[ExecutionContext::LOOP_JUMPBACK];
 							// ... and set variables
+							// todo: use stack feature
 							if (!empty($loop[ExecutionContext::LOOP_VARS][0])){
 								$key = key($loop[ExecutionContext::LOOP_ARRAY]);
 								$this->context->addValue($loop[ExecutionContext::LOOP_VARS][0][0], $key);
@@ -181,6 +189,32 @@ class DefaultExecutor implements ExecutionContext
 							}
 						}
 						$result .= $executor->render($template);
+						break;
+					case 'macro':
+						$start = $position;
+						$end = false;
+						$pos = strpos($commandParams, '(');
+						$params = [];
+						if ($pos !== false) {
+							$name = trim(substr($commandParams, 0, $pos));
+							$param = substr($commandParams, $pos + 1);
+							$param = substr($param, 0, strpos($param, ')'));
+							foreach (explode(',', $param) as $param) {
+								$params[] = trim($param);
+							}
+						} else {
+							$name = trim($commandParams);
+						}
+						while ($position++ < $to) {
+							if (substr($this->parsed[$position], 0, 11) == '{% endmacro') {
+								$end = $position;
+								break;
+							}
+						}
+						if ($end === false) {
+							throw new \Exception('Cannot find end of macro ' . $name);
+						}
+						$this->macros[$name] = [$start + 1, $end - 1, $params];
 						break;
 					default:
 						if (isset($this->commandHandler[$commandType])) {
@@ -329,7 +363,7 @@ class DefaultExecutor implements ExecutionContext
 		}
 	}
 	
-	private function initLoop($command)
+	private function initLoop($command, $position)
 	{
 		$parts = explode(' in ', $command, 2);
 		
@@ -375,7 +409,7 @@ class DefaultExecutor implements ExecutionContext
 				self::LOOP_CURRENT_INDEX => 0,
 				self::LOOP_COUNT => count($loopArr) - 1,
 				self::LOOP_ARRAY => &$loopArr,
-				self::LOOP_JUMPBACK => $this->position,
+				self::LOOP_JUMPBACK => $position,
 				self::LOOP_VARS => $loopVarNames,
 			];
 			if (count($loopArr) > 0) {
@@ -391,6 +425,25 @@ class DefaultExecutor implements ExecutionContext
 		$this->currentLoops[] = $loopInfo;
 		
 		return true;
+	}
+	
+	public function hasMacro($name)
+	{
+		return isset($this->macros[$name]);
+	}
+	
+	public function callMacro($name, $args)
+	{
+		$macro = &$this->macros[$name];
+		$frame = [];
+		$l = count($macro[2]);
+		for ($i = 0; $i < $l; $i++) {
+			$frame[$macro[2][$i]] = $args[$i] ?? null;
+		}
+		$this->context->pushStack($frame);
+		$rendered = $this->renderFromTo($macro[0], $macro[1]);
+		$this->context->popStack();
+		return $rendered;
 	}
 	
 	private function storeVariables(&$arr)

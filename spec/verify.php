@@ -36,7 +36,7 @@ while ($group = $dir->read()) {
 						$name,
 						$data
 					);
-					if ($rendered === trim($all[4])) {
+					if (trim($rendered) === trim($all[4])) {
 						echo '.';
 					} else {
 						$fails[] = [$name, trim($all[4]), $rendered];

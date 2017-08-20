@@ -13,4 +13,6 @@ interface ExecutionContext
 	const LOOP_VARS = 5;
 	
 	public function getLoop($above = 0);
+	public function hasMacro($name);
+	public function callMacro($name, $args);
 }

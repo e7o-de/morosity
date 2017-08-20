@@ -28,4 +28,7 @@ interface VariableContext
 	 * Checks if a variable is known at all.
 	 */
 	public function hasValue($name);
+	
+	public function pushStack(array $data);
+	public function popStack();
 }
