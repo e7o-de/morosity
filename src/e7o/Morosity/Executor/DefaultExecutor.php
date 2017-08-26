@@ -3,6 +3,7 @@
 namespace e7o\Morosity\Executor;
 
 use \e7o\Morosity\Parser\Tokenizer;
+use \e7o\Morosity\Parser\Tokens;
 
 class DefaultExecutor implements ExecutionContext
 {
@@ -58,34 +59,38 @@ class DefaultExecutor implements ExecutionContext
 		// Set to $from-1 that the first increment doesn't ignore the first command
 		$position = $from - 1;
 		while ($position++ < $to) {
-			$currentToken = &$this->parsed[$position];
+			list($commandType, $commandParams, $commandPlain) = $this->parsed[$position];
 			
 			// todo: check in parser for type and allow multiple spaces etc.
 			if (
 				$ignoreIfMode
-				&& !is_array($currentToken)
-				&& substr($currentToken, 0, 5) != '{% if'
-				&& substr($currentToken, 0, 7) != '{% else'
-				&& substr($currentToken, 0, 8) != '{% endif'
+				&& $commandType != Tokens::CONDITION_IF
+				&& $commandType != Tokens::CONDITION_ELSE
+				&& $commandType != Tokens::CONDITION_ELSEIF
+				&& $commandType != Tokens::CONDITION_END
 			) {
 				continue;
 			}
 			if ($ignoreTillNextEndfor > 0) {
-				if (!isset($currentToken)) {
-				} else if (substr($currentToken, 0, 6) == '{% for') {
+				if ($commandType == Tokens::LOOP_START) {
 					$ignoreTillNextEndfor++;
-				} else if (substr($currentToken, 0, 9) == '{% endfor') {
+				} else if ($commandType == Tokens::LOOP_END) {
 					$ignoreTillNextEndfor--;
 				}
 				continue;
 			}
 			// Check type
-			if (substr($currentToken, 0, 2) == '{%') {
-				$commandType = explode(' ', trim(substr($currentToken, 2)), 2);
-				$commandParams = isset($commandType[1]) ? $commandType[1] : '';
-				$commandType = strtolower(trim($commandType[0]));
+			if ($commandType == Tokens::VARIABLE) {
+				$value = $this->evaluateExpression($commandParams);
+				$result .= $value;
+			} else if ($commandType == Tokens::PLAIN_TEXT) {
+				// No special code, simply add it
+				$result .= $commandParams;
+			} else if ($commandType == Tokens::COMMENT) {
+				// Ignore
+			} else {
 				switch ($commandType) {
-					case 'for':
+					case Tokens::LOOP_START:
 						// Find current loop
 						$doLoop = $this->initLoop($commandParams, $position);
 						if ($doLoop == false) {
@@ -93,7 +98,7 @@ class DefaultExecutor implements ExecutionContext
 							$ignoreTillNextEndfor = 1;
 						}
 						break;
-					case 'endfor':
+					case Tokens::LOOP_END:
 						// Ends a loop
 						// Read current loop information from stack
 						end($this->currentLoops);
@@ -121,7 +126,7 @@ class DefaultExecutor implements ExecutionContext
 							unset($this->currentLoops[key($this->currentLoops)]);
 						}
 						break;
-					case 'if':
+					case Tokens::CONDITION_IF:
 						if ($ignoreIfMode) {
 							// Ignore this one but count it
 							$ignoreDeeperIfKeywords++;
@@ -132,8 +137,8 @@ class DefaultExecutor implements ExecutionContext
 							$ignoreTillNextIfKeyword[$ifDeep] = false;
 							$ignoreIfMode = false;
 						}
-					case 'elseif':
-					case 'else':
+					case Tokens::CONDITION_ELSEIF:
+					case Tokens::CONDITION_ELSE:
 						if ($ignoreDeeperIfKeywords <= 0) {
 							// Read if any condition already matched
 							$match = $this->ifHadMatch[$ifDeep];
@@ -155,7 +160,7 @@ class DefaultExecutor implements ExecutionContext
 							}
 						}
 						break;
-					case 'endif':
+					case Tokens::CONDITION_END:
 						if ($ignoreDeeperIfKeywords > 0) {
 							$ignoreDeeperIfKeywords--;
 						} else {
@@ -170,12 +175,12 @@ class DefaultExecutor implements ExecutionContext
 							}
 						}
 						break;
-					case 'set':
+					case Tokens::VAR_SET:
 						// Define a variable/array
 						$parts = explode('=', $commandParams, 2);
 						$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
 						break;
-					case 'include':
+					case Tokens::TEMPLATE_INCLUDE:
 						if (empty($executor)) {
 							$executor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
 						}
@@ -192,7 +197,7 @@ class DefaultExecutor implements ExecutionContext
 						}
 						$result .= $executor->render($template);
 						break;
-					case 'macro':
+					case Tokens::FUNCTION_START:
 						$start = $position;
 						$end = false;
 						$pos = strpos($commandParams, '(');
@@ -208,7 +213,7 @@ class DefaultExecutor implements ExecutionContext
 							$name = trim($commandParams);
 						}
 						while ($position++ < $to) {
-							if (substr($this->parsed[$position], 0, 11) == '{% endmacro') {
+							if ($this->parsed[$position][0] == Tokens::FUNCTION_END) {
 								$end = $position;
 								break;
 							}
@@ -218,7 +223,7 @@ class DefaultExecutor implements ExecutionContext
 						}
 						$this->macros[$name] = [$start + 1, $end - 1, $params];
 						break;
-					case 'import':
+					case Tokens::TEMPLATE_IMPORT:
 						$pos = strpos($commandParams, ' as ');
 						if ($pos !== false) {
 							$file = trim(substr($commandParams, 0, $pos));
@@ -238,22 +243,14 @@ class DefaultExecutor implements ExecutionContext
 						$this->includedMacros[$alias] = $newExecutor;
 						break;
 					default:
-						if (isset($this->commandHandler[$commandType])) {
-							$result .= $this->commandHandler[$commandType]
-								->handleCommand($this->context, $commandType, $commandParams)
+						if (isset($this->commandHandler[$commandPlain])) {
+							$result .= $this->commandHandler[$commandPlain]
+								->handleCommand($this->context, $commandPlain, $commandParams)
 							;
 						} else {
-							throw new \Exception('Unknown command: ' . $commandType);
+							throw new \Exception('Unknown command: ' . $commandPlain);
 						}
 				}
-			} else if (substr($currentToken, 0, 2) == '{{') {
-				$value = $this->evaluateExpression(trim(substr($currentToken, 2)));
-				$result .= $value;
-			} else if (substr($currentToken, 0, 2) == '{#') {
-				// Ignore
-			} else {
-				// No special code, simply add it
-				$result .= $currentToken;
 			}
 		}
 		

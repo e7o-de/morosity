@@ -2,6 +2,8 @@
 
 namespace e7o\Morosity\Parser;
 
+use \e7o\Morosity\Parser\Tokens;
+
 abstract class Tokenizer
 {
 	public static function parse(&$tmpl)
@@ -17,15 +19,69 @@ abstract class Tokenizer
 			$i = $tokenPositions[$idx][1];
 			// Find closing tag
 			$c = $tokenPositions[$idx][0][1];
-			if ($c == '{') {
-				$c = '}';
+			switch ($c) {
+				case '{':
+					$c = '}';
+					$type = Tokens::VARIABLE;
+					break;
+				case '#':
+					$type = Tokens::COMMENT;
+					break;
+				default:
+					$type = null;
 			}
 			$toClose = $c . '}';
 			$j = strpos($tmpl, $toClose, $i);
 			if ($j > $i) {
 				// Closing tag found, push both parts to array
-				$parsed[] = substr($tmpl, $oldi, $i - $oldi);
-				$parsed[] = substr($tmpl, $i, $j - $i);
+				$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $oldi, $i - $oldi), null];
+				
+				$currentToken = substr($tmpl, $i, $j - $i);
+				if ($type === null) {
+					$commandType = explode(' ', trim(substr($currentToken, 2)), 2);
+					$commandParams = isset($commandType[1]) ? $commandType[1] : '';
+					$commandType = strtolower(trim($commandType[0]));
+					switch ($commandType) {
+						case 'for':
+							$type = Tokens::LOOP_START;
+							break;
+						case 'endfor':
+							$type = Tokens::LOOP_END;
+							break;
+						case 'if':
+							$type = Tokens::CONDITION_IF;
+							break;
+						case 'elseif':
+							$type = Tokens::CONDITION_ELSEIF;
+							break;
+						case 'else':
+							$type = Tokens::CONDITION_ELSE;
+							break;
+						case 'endif':
+							$type = Tokens::CONDITION_END;
+							break;
+						case 'set':
+							$type = Tokens::VAR_SET;
+							break;
+						case 'include':
+							$type = Tokens::TEMPLATE_INCLUDE;
+							break;
+						case 'import':
+							$type = Tokens::TEMPLATE_IMPORT;
+							break;
+						case 'macro':
+							$type = Tokens::FUNCTION_START;
+							break;
+						case 'endmacro':
+							$type = Tokens::FUNCTION_END;
+							break;
+						default:
+							$type = Tokens::CUSTOM_COMMAND;
+					}
+				} else {
+					$commandParams = trim(substr($currentToken, 2));
+				}
+				$parsed[] = [$type, $commandParams, $commandType ?? null];
 				// Remember positions
 				$i = $j + 2;
 				$oldi = $i;
@@ -35,7 +91,7 @@ abstract class Tokenizer
 			}
 		}
 		// Also add last piece of code to array
-		$parsed[] = substr($tmpl, $oldi);
+		$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $oldi), null];
 		return $parsed;
 	}
 }
