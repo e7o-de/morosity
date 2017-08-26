@@ -1,0 +1,14 @@
+------------------------------------------------------------------------------
+Macros can be imported and aliased from another template file via the
+import tag. The import statement doesn't reader the template as include
+does.
+------------------------------------------------------------------------------
+{% import 'dummy.macro' as abc %}
+{% import var as xyz %}
+{{ abc.dummy(4) }}
+{{ xyz.dummy(7) }}
+------------------------------------------------------------------------------
+{"var": "dummy.macro"}
+------------------------------------------------------------------------------
+-4-
+-7-

@@ -7,6 +7,7 @@ use \e7o\Morosity\Morosity;
 $templates = [
 	'dummy.dummy' => '-{{ dummy }}-',
 	'dummy.i' => '-{{ i }}-',
+	'dummy.macro' => '{% macro dummy(i) %}-{{ i }}-{% endmacro %}',
 ];
 
 $ctTotal = 0;
@@ -32,15 +33,20 @@ while ($group = $dir->read()) {
 					$fails[] = [$name, json_last_error_msg()];
 					echo '?';
 				} else {
-					$rendered = $m->render(
-						$name,
-						$data
-					);
-					if (trim($rendered) === trim($all[4])) {
-						echo '.';
-					} else {
-						$fails[] = [$name, trim($all[4]), $rendered];
-						echo 'F';
+					try {
+						$rendered = $m->render(
+							$name,
+							$data
+						);
+						if (trim($rendered) === trim($all[4])) {
+							echo '.';
+						} else {
+							$fails[] = [$name, trim($all[4]), $rendered];
+							echo 'F';
+						}
+					} catch (\Exception $e) {
+						$fails[] = [$name, $e->getMessage()];
+						echo 'E';
 					}
 				}
 			}

@@ -18,6 +18,7 @@ class DefaultExecutor implements ExecutionContext
 	private $jumpBack;
 	private $ifHadMatch;
 	private $macros;
+	private $includedMacros;
 	
 	public function __construct(VariableContext $context, Environment $env, array $commandHandler)
 	{
@@ -29,7 +30,7 @@ class DefaultExecutor implements ExecutionContext
 	/**
 	 * This method renders a template. THIS METHOD IS NOT TRHEAD-SAFE OR SIMILAR.
 	 * It can be executed just one at a time. Create a new instance of that object
-	 * to render while other rendering is in progress.
+	 * to render while another rendering is in progress.
 	 */
 	public function render($template)
 	{
@@ -40,6 +41,7 @@ class DefaultExecutor implements ExecutionContext
 		$this->ifHadMatch = [];
 		$this->variables = [];
 		$this->macros = [];
+		$this->includedMacros = [];
 		
 		return $this->renderFromTo(0, count($this->parsed) - 1);
 	}
@@ -215,6 +217,25 @@ class DefaultExecutor implements ExecutionContext
 							throw new \Exception('Cannot find end of macro ' . $name);
 						}
 						$this->macros[$name] = [$start + 1, $end - 1, $params];
+						break;
+					case 'import':
+						$pos = strpos($commandParams, ' as ');
+						if ($pos !== false) {
+							$file = trim(substr($commandParams, 0, $pos));
+							$alias = trim(substr($commandParams, $pos + 3));
+						} else {
+							$file = trim($commandParams);
+							$alias = null;
+						}
+						if ($file === '_self') {
+							$newExecutor = $this;
+						} else {
+							$file = $this->evaluateExpression($file);
+							$newExecutor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
+							// todo: dirty workaround here ;)
+							$newExecutor->render($this->environment->getLoader()->load($file));
+						}
+						$this->includedMacros[$alias] = $newExecutor;
 						break;
 					default:
 						if (isset($this->commandHandler[$commandType])) {
@@ -429,20 +450,30 @@ class DefaultExecutor implements ExecutionContext
 	
 	public function hasMacro($name)
 	{
-		return isset($this->macros[$name]);
+		$name = explode('.', $name);
+		if (count($name) == 2) {
+			return isset($this->includedMacros[$name[0]]) && $this->includedMacros[$name[0]]->hasMacro($name[1]);
+		} else {
+			return isset($this->macros[$name[0]]);
+		}
 	}
 	
 	public function callMacro($name, $args)
 	{
-		$macro = &$this->macros[$name];
-		$frame = [];
-		$l = count($macro[2]);
-		for ($i = 0; $i < $l; $i++) {
-			$frame[$macro[2][$i]] = $args[$i] ?? null;
+		$name = explode('.', $name);
+		if (count($name) == 2) {
+			$rendered = $this->includedMacros[$name[0]]->callMacro($name[1], $args);
+		} else {
+			$macro = &$this->macros[$name[0]];
+			$frame = [];
+			$l = count($macro[2]);
+			for ($i = 0; $i < $l; $i++) {
+				$frame[$macro[2][$i]] = $args[$i] ?? null;
+			}
+			$this->context->pushStack($frame);
+			$rendered = $this->renderFromTo($macro[0], $macro[1]);
+			$this->context->popStack();
 		}
-		$this->context->pushStack($frame);
-		$rendered = $this->renderFromTo($macro[0], $macro[1]);
-		$this->context->popStack();
 		return $rendered;
 	}
 	

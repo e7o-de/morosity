@@ -174,7 +174,7 @@ class Processor implements VariableContext, Environment
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
 			$val = substr($expression, 1, -1);
-		} else if (!empty($context) && (preg_match('/^[a-z0-9_]+ *\(/i', $expression))) {
+		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
 			// Macro call
 			$pos = strpos($expression, '(');
 			$name = trim(substr($expression, 0, $pos));
