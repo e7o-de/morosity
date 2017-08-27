@@ -82,54 +82,10 @@ class DefaultExecutor implements ExecutionContext
 			} else {
 				switch ($commandType) {
 					case Tokens::LOOP_START:
-						// Find current loop
-						$doLoop = $this->initLoop($commandParams, $position);
-						if ($doLoop == false) {
-							// Fast-forward to stuff after the loop
-							$ignoreTillNextEndfor = 1;
-							while ($position++ < $to) {
-								if ($this->parsed[$position][0] == Tokens::LOOP_START) {
-									$ignoreTillNextEndfor++;
-								} else if ($this->parsed[$position][0] == Tokens::LOOP_END) {
-									$ignoreTillNextEndfor--;
-									$end = $position;
-									if ($ignoreTillNextEndfor <= 0) {
-										break;
-									}
-								}
-							}
-							if ($ignoreTillNextEndfor >= 1) {
-								throw new \Exception('Cannot find end of loop: ' . $commandParams);
-							}
-						}
+						$this->handleLoopStart($position, $to, $commandParams);
 						break;
 					case Tokens::LOOP_END:
-						// Ends a loop
-						// Read current loop information from stack
-						end($this->currentLoops);
-						$loop = &$this->currentLoops[key($this->currentLoops)];
-						// Check if counter is smaller than the maximum loop count
-						if ($loop[ExecutionContext::LOOP_CURRENT_INDEX] < $loop[ExecutionContext::LOOP_COUNT]) {
-							// Yes: Just increase the counter and go back to start of the loop
-							$loop[ExecutionContext::LOOP_CURRENT_INDEX]++;
-							next($loop[ExecutionContext::LOOP_ARRAY]);
-							$position = $loop[ExecutionContext::LOOP_JUMPBACK];
-							// ... and set variables
-							// todo: use stack feature
-							if (!empty($loop[ExecutionContext::LOOP_VARS][0])){
-								$key = key($loop[ExecutionContext::LOOP_ARRAY]);
-								$this->context->addValue($loop[ExecutionContext::LOOP_VARS][0][0], $key);
-							}
-							if (!empty($loop[ExecutionContext::LOOP_VARS][1])){
-								$value = current($loop[ExecutionContext::LOOP_ARRAY]);
-								$this->context->addValue($loop[ExecutionContext::LOOP_VARS][1][0], $value);
-							}
-						} else {
-							// No: Clean up ...
-							$this->restoreValues($this->currentLoops[key($this->currentLoops)][ExecutionContext::LOOP_VARS]);
-							// ... and remove from stack
-							unset($this->currentLoops[key($this->currentLoops)]);
-						}
+						$this->handleLoopEnd($position);
 						break;
 					case Tokens::CONDITION_IF:
 						if ($ignoreIfMode) {
@@ -260,6 +216,58 @@ class DefaultExecutor implements ExecutionContext
 		}
 		
 		return $result;
+	}
+	
+	private function handleLoopStart(&$position, $maxPosition, $params)
+	{
+		$doLoop = $this->initLoop($params, $position);
+		if ($doLoop == false) {
+			// Fast-forward to stuff after the loop
+			$ignoreTillNextEndfor = 1;
+			while ($position++ < $maxPosition) {
+				if ($this->parsed[$position][0] == Tokens::LOOP_START) {
+					$ignoreTillNextEndfor++;
+				} else if ($this->parsed[$position][0] == Tokens::LOOP_END) {
+					$ignoreTillNextEndfor--;
+					$end = $position;
+					if ($ignoreTillNextEndfor <= 0) {
+						break;
+					}
+				}
+			}
+			if ($ignoreTillNextEndfor >= 1) {
+				throw new \Exception('Cannot find end of loop: ' . $params);
+			}
+		}
+	}
+	
+	private function handleLoopEnd(&$position)
+	{
+		// Read current loop information from stack
+		end($this->currentLoops);
+		$loop = &$this->currentLoops[key($this->currentLoops)];
+		// Check if counter is smaller than the maximum loop count
+		if ($loop[ExecutionContext::LOOP_CURRENT_INDEX] < $loop[ExecutionContext::LOOP_COUNT]) {
+			// Yes: Just increase the counter and go back to start of the loop
+			$loop[ExecutionContext::LOOP_CURRENT_INDEX]++;
+			next($loop[ExecutionContext::LOOP_ARRAY]);
+			$position = $loop[ExecutionContext::LOOP_JUMPBACK];
+			// ... and set variables
+			// todo: use stack feature
+			if (!empty($loop[ExecutionContext::LOOP_VARS][0])){
+				$key = key($loop[ExecutionContext::LOOP_ARRAY]);
+				$this->context->addValue($loop[ExecutionContext::LOOP_VARS][0][0], $key);
+			}
+			if (!empty($loop[ExecutionContext::LOOP_VARS][1])){
+				$value = current($loop[ExecutionContext::LOOP_ARRAY]);
+				$this->context->addValue($loop[ExecutionContext::LOOP_VARS][1][0], $value);
+			}
+		} else {
+			// No: Clean up ...
+			$this->restoreValues($this->currentLoops[key($this->currentLoops)][ExecutionContext::LOOP_VARS]);
+			// ... and remove from stack
+			unset($this->currentLoops[key($this->currentLoops)]);
+		}
 	}
 	
 	public function getLoop($above = 0)
