@@ -30,7 +30,7 @@ class DefaultExecutor implements ExecutionContext
 	
 	/**
 	 * This method renders a template. THIS METHOD IS NOT TRHEAD-SAFE OR SIMILAR.
-	 * It can be executed just one at a time. Create a new instance of that object
+	 * It can be executed just once at a time. Create a new instance of that object
 	 * to render while another rendering is in progress.
 	 */
 	public function render($template)
@@ -53,7 +53,6 @@ class DefaultExecutor implements ExecutionContext
 		$ignoreTillNextIfKeyword = [];
 		$ignoreIfMode = false;
 		$ignoreDeeperIfKeywords = 0;
-		$ignoreTillNextEndfor = 0;
 		$ifDeep = 0;
 		$executor = null;
 		// Set to $from-1 that the first increment doesn't ignore the first command
@@ -71,14 +70,6 @@ class DefaultExecutor implements ExecutionContext
 			) {
 				continue;
 			}
-			if ($ignoreTillNextEndfor > 0) {
-				if ($commandType == Tokens::LOOP_START) {
-					$ignoreTillNextEndfor++;
-				} else if ($commandType == Tokens::LOOP_END) {
-					$ignoreTillNextEndfor--;
-				}
-				continue;
-			}
 			// Check type
 			if ($commandType == Tokens::VARIABLE) {
 				$value = $this->evaluateExpression($commandParams);
@@ -94,8 +85,22 @@ class DefaultExecutor implements ExecutionContext
 						// Find current loop
 						$doLoop = $this->initLoop($commandParams, $position);
 						if ($doLoop == false) {
-							// Fast-forward to stuf after the loop
+							// Fast-forward to stuff after the loop
 							$ignoreTillNextEndfor = 1;
+							while ($position++ < $to) {
+								if ($this->parsed[$position][0] == Tokens::LOOP_START) {
+									$ignoreTillNextEndfor++;
+								} else if ($this->parsed[$position][0] == Tokens::LOOP_END) {
+									$ignoreTillNextEndfor--;
+									$end = $position;
+									if ($ignoreTillNextEndfor <= 0) {
+										break;
+									}
+								}
+							}
+							if ($ignoreTillNextEndfor >= 1) {
+								throw new \Exception('Cannot find end of loop: ' . $commandParams);
+							}
 						}
 						break;
 					case Tokens::LOOP_END:
