@@ -193,6 +193,7 @@ class Processor implements VariableContext, Environment
 			// Iterate through dots
 			$val = null;
 			foreach (explode('.', $expression) as $expressionSub) {
+				$expressionSub = trim($expressionSub);
 				if ($expressionSub === '') {
 					$val = null; // shouldn't happen i guess
 				} else if (is_array($val) && isset($val[$expressionSub])) {
