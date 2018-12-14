@@ -1,0 +1,21 @@
+{
+	"name": "e7o/morosity",
+	"description": "A mostly standard template engine without all the overhead",
+	"authors": [
+		{
+			"name": "Sven Herzky",
+			"email": "sven@e7o.de"
+		}
+	],
+	"license": ["LGPL-3.0-or-later"],
+   	"autoload": {
+		"psr-4": {
+			"e7o\\Morosity\\": "src/e7o/Morosity"
+		}
+	},
+	"minimum-stability": "stable",
+	"prefer-stable": true,
+	"require": {
+	}
+}
+

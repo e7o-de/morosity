@@ -200,6 +200,7 @@ class Processor implements VariableContext, Environment
 					$val = $val[$expressionSub];
 				} else if ($expressionSub[0] == ':') {
 					// Special character
+					// (todo: remove)
 					switch ($expressionSub) {
 						case ':pipe': $val = '|'; break;
 						case ':comma': $val = ','; break;

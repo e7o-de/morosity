@@ -1,8 +1,9 @@
 <?php
 
-include('tmp_autoloader.php');
+include('vendor/autoload.php');
 
 use \e7o\Morosity\Morosity;
+use \e7o\Morosity\Loader\TestLoader;
 
 $templates = [
 	'dummy.dummy' => '-{{ dummy }}-',
