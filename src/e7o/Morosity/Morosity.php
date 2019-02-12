@@ -15,10 +15,16 @@ class Morosity
 	
 	public function render(string $file, array $params = [])
 	{
+		$template = $this->loader->load($file);
+		return $this->renderString($template, $params);
+	}
+	
+	public function renderString(string $template, array $params = [])
+	{
 		$processor = new Executor\Processor;
 		$processor->setValues($params);
 		$processor->setLoader($this->loader);
-		$template = $this->loader->load($file);
 		return $processor->render($template);
 	}
 }
+
