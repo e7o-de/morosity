@@ -60,6 +60,15 @@ abstract class Tokenizer
 						case 'endif':
 							$type = Tokens::CONDITION_END;
 							break;
+						case 'switch':
+							$type = Tokens::SWITCH_START;
+							break;
+						case 'case':
+							$type = Tokens::SWITCH_CASE;
+							break;
+						case 'endswitch':
+							$type = Tokens::SWITCH_END;
+							break;
 						case 'set':
 							$type = Tokens::VAR_SET;
 							break;

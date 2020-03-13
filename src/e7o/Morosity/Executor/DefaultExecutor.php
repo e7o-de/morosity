@@ -54,6 +54,11 @@ class DefaultExecutor implements ExecutionContext
 		$ignoreIfMode = false;
 		$ignoreDeeperIfKeywords = 0;
 		$ifDeep = 0;
+		$ignoreTillNextSwitchKeyword = [];
+		$ignoreSwitchMode = false;
+		$ignoreDeeperSwitchKeywords = 0;
+		$switchDeep = 0;
+		$switchVar = [];
 		$executor = null;
 		// Set to $from-1 that the first increment doesn't ignore the first command
 		$position = $from - 1;
@@ -67,6 +72,11 @@ class DefaultExecutor implements ExecutionContext
 				&& $commandType != Tokens::CONDITION_ELSE
 				&& $commandType != Tokens::CONDITION_ELSEIF
 				&& $commandType != Tokens::CONDITION_END
+				||
+				$ignoreSwitchMode
+				&& $commandType != Tokens::SWITCH_START
+				&& $commandType != Tokens::SWITCH_CASE
+				&& $commandType != Tokens::SWITCH_END
 			) {
 				continue;
 			}
@@ -101,13 +111,11 @@ class DefaultExecutor implements ExecutionContext
 					case Tokens::CONDITION_ELSEIF:
 					case Tokens::CONDITION_ELSE:
 						if ($ignoreDeeperIfKeywords <= 0) {
-							// Read if any condition already matched
-							$match = $this->ifHadMatch[$ifDeep];
 							// Set ignore to true in advance
 							$ignoreTillNextIfKeyword[$ifDeep] = true;
 							$ignoreIfMode = true;
-							// When there was never a matching in this case
-							if (!$match) {
+							// When this if not matched yet
+							if (!$this->ifHadMatch[$ifDeep]) {
 								// Process conditions
 								$match = $this->checkConditions($commandParams);
 								// Match :)
@@ -133,6 +141,70 @@ class DefaultExecutor implements ExecutionContext
 								$ignoreIfMode = false;
 							} else {
 								$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
+							}
+						}
+						break;
+					case Tokens::SWITCH_START:
+						// CASE should come directly after, so we ignore from here all
+						// content (in best case, only spaces in template)
+						if ($ignoreSwitchMode) {
+							$ignoreDeeperSwitchKeywords++;
+						} else {
+							$ignoreSwitchMode = true;
+							$switchDeep++;
+							$this->switchHadMatch[$switchDeep] = false;
+							$ignoreTillNextSwitchKeyword[$switchDeep] = false;
+							$switchVar[$switchDeep] = $this->evaluateExpression($commandParams);
+						}
+						// No fall-through here, as opposite to our if handling, as the
+						// condition will follow in a case
+						break;
+					case Tokens::SWITCH_CASE:
+						if ($ignoreDeeperSwitchKeywords <= 0) {
+							$ignoreTillNextSwitchKeyword[$switchDeep] = true;
+							$ignoreSwitchMode = true;
+							if (!$this->switchHadMatch[$switchDeep]) {
+								// Process conditions
+								if ($commandParams == '*') {
+									$match = true;
+								} else {
+									$match = false;
+									// TODO: Needs ParamParser functionality instead of a stupid explode
+									$all = explode(',', $commandParams);
+									foreach ($all as $one) {
+										$expr = $this->evaluateExpression($one);
+										if ($expr == $switchVar[$switchDeep]) {
+											$match = true;
+											break;
+										}
+									}
+								}
+								// Match :)
+								if ($match) {
+									// We had a match, remember this
+									$this->switchHadMatch[$switchDeep] = true;
+									// Don't ignore this block
+									$ignoreTillNextSwitchKeyword[$switchDeep] = false;
+									$ignoreSwitchMode = false;
+								}
+							}
+						}
+						break;
+					case Tokens::SWITCH_END:
+						if ($ignoreDeeperSwitchKeywords) {
+							$ignoreDeeperSwitchKeywords--;
+						} else {
+							// Remove from stack
+							$this->switchHadMatch[$switchDeep] = null;
+							$ignoreTillNextSwitchKeyword[$switchDeep] = null;
+							$switchDeep--;
+							if (!isset($ignoreTillNextSwitchKeyword[$switchDeep])) {
+								$ignoreSwitchMode = false;
+							} else {
+								$ignoreSwitchMode =
+									!empty($ignoreTillNextSwitchKeyword)
+									&& $ignoreTillNextSwitchKeyword[$switchDeep]
+								;
 							}
 						}
 						break;

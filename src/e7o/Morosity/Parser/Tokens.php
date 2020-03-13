@@ -14,6 +14,10 @@ abstract class Tokens
 	const CONDITION_ELSE = 60;
 	const CONDITION_END = 65;
 	
+	const SWITCH_START = 70;
+	const SWITCH_CASE = 75;
+	const SWITCH_END = 80;
+	
 	const LOOP_START = 100;
 	const LOOP_END = 110;
 	
