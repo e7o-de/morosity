@@ -354,6 +354,10 @@ class Processor implements VariableContext, Environment
 				case 'replace':
 					$value = str_replace($param[1], $param[2], $value);
 					break;
+				case 'e':
+				case 'encode':
+					$value = htmlentities($value, null, 'UTF-8');
+					break;
 				case 'striphtml':
 					$value = strip_tags($value, '<br><p>');
 					break;
