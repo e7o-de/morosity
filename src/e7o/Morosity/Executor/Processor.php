@@ -362,7 +362,7 @@ class Processor implements VariableContext, Environment
 					break;
 				case 'e':
 				case 'encode':
-					$value = htmlentities($value, null, 'UTF-8');
+					$value = htmlentities($value, \ENT_QUOTES, 'UTF-8');
 					break;
 				case 'striphtml':
 					$value = strip_tags($value, '<br><p>');
