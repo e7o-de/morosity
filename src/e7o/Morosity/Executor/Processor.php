@@ -259,6 +259,9 @@ class Processor implements VariableContext, Environment
 			if (strlen($param) == 0) {
 				continue;
 			}
+			if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
+				$param = substr($param, 0, $pPos) . ',' . substr($param, $pPos + 1, strlen($param) - $pPos - 2);
+			}
 			$param = str_getcsv($param, ',', '"');
 			// Preprocess params
 			for ($i = 1; $i < count($param); $i++) {
@@ -284,6 +287,10 @@ class Processor implements VariableContext, Environment
 				case 'split':
 				case 'explode':
 					$value = explode($param[1], $value);
+					break;
+				case 'join':
+				case 'implode':
+					$value = implode($param[1], $value);
 					break;
 				case 'count':
 					if (is_array($value)) {
