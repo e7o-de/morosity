@@ -254,7 +254,6 @@ class Processor implements VariableContext, Environment
 	
 	private function processParams($value, $params)
 	{
-		global $lang;
 		foreach ($params as $param) {
 			$param = trim($param);
 			if (strlen($param) == 0) {
@@ -396,15 +395,8 @@ class Processor implements VariableContext, Environment
 					if (empty($param[1])) {
 						$param[1] = \DateTime::W3C;
 					}
-					// Replace F that we can parse this for ourself (example input: {%_time|date,d. F Y})
-					$c = 0;
-					$vOrig = (int)$value;
-					$param[1] = preg_replace('/([^\\\\])F/', '$1___\F___', $param[1], -1, $c);
-					// Parse
-					$value = date($param[1], $vOrig);
-					// Replace it with language-specific month name
-					// ToDo: It's a dependency to the framework...
-					if ($c > 0) $value = str_replace('___F___', $lang['months'][date('m', $vOrig)], $value);
+					$value = date($param[1], (int)$value);
+					// TODO: Replace it with language-specific month name
 					break;
 			// Convert and format
 				case 'int': $value = (int)$value; break;
