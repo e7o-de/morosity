@@ -4,9 +4,13 @@ Checks wether a variable has a certain value or not.
 {% if v1 == 123 %}y{% else %}n{% endif %}
 {% if v2 == "abc" %}y{% else %}n{% endif %}
 {% if v3 == "abc" %}y{% else %}n{% endif %}
+{% if v4 %}y{% else %}n{% endif %}
+{% if v5 %}y{% else %}n{% endif %}
 ------------------------------------------------------------------------------
-{"v1": 123, "v2": "abc", "v3": "xyz"}
+{"v1": 123, "v2": "abc", "v3": "xyz", "v4": {"a": 1}, "v5": false}
 ------------------------------------------------------------------------------
 y
+y
+n
 y
 n
