@@ -397,12 +397,18 @@ class Processor implements VariableContext, Environment
 					break;
 			// Date and time
 				case 'date':
-					// For the moment only timestamps are supported.
 					// Use default format when no specification is made
 					if (empty($param[1])) {
 						$param[1] = \DateTime::W3C;
 					}
-					$value = date($param[1], (int)$value);
+					if ($value instanceof \DateTime) {
+						$value = $value->format($param[1]);
+					} else if (is_numeric($value)) {
+						$value = date($param[1], (int)$value);
+					} else {
+						// TODO: Try to parse as date
+						$value = '(Invalid date)';
+					}
 					// TODO: Replace it with language-specific month name
 					break;
 			// Convert and format
