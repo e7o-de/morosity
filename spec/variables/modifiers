@@ -4,6 +4,7 @@ supporting arguments, they can be appended via a comma or as function arguments.
 ------------------------------------------------------------------------------
 {{ a     | json }}
 {{a|join(",")}}
+{{a|join("\"")}}
 {{b|hex|rot13}}
 {{c|encode}}
 ------------------------------------------------------------------------------
@@ -11,5 +12,6 @@ supporting arguments, they can be appended via a comma or as function arguments.
 ------------------------------------------------------------------------------
 [1,2]
 1,2
+1"2
 n
 &lt;b&gt;&uuml;

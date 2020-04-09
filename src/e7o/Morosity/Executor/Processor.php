@@ -265,6 +265,8 @@ class Processor implements VariableContext, Environment
 			$param = str_getcsv($param, ',', '"');
 			// Preprocess params
 			for ($i = 1; $i < count($param); $i++) {
+				// Replacement of escaping characters str_getcsv does not remove
+				$param = str_replace('\"', '"', $param);
 				// Use variable instead of value itself
 				if ($param[$i][0] == '~') {
 					$param[$i] = $this->evaluateExpression(substr($param[$i], 1));
