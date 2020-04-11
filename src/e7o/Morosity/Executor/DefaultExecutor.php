@@ -37,8 +37,8 @@ class DefaultExecutor implements ExecutionContext
 	{
 		$this->parsed = Tokenizer::parse($template);
 		
-		$this->jumpBack = array();
-		$this->currentLoops = array();
+		$this->jumpBack = [];
+		$this->currentLoops = [];
 		$this->ifHadMatch = [];
 		$this->variables = [];
 		$this->macros = [];
@@ -80,210 +80,210 @@ class DefaultExecutor implements ExecutionContext
 			) {
 				continue;
 			}
-			// Check type
-			if ($commandType == Tokens::VARIABLE) {
-				$value = $this->evaluateExpression($commandParams);
-				$result .= $value;
-			} else if ($commandType == Tokens::PLAIN_TEXT) {
-				// No special code, simply add it
-				$result .= $commandParams;
-			} else if ($commandType == Tokens::COMMENT) {
-				// Ignore
-			} else {
-				switch ($commandType) {
-					case Tokens::LOOP_START:
-						$this->handleLoopStart($position, $to, $commandParams);
-						break;
-					case Tokens::LOOP_END:
-						$this->handleLoopEnd($position);
-						break;
-					case Tokens::CONDITION_IF:
-						if ($ignoreIfMode) {
-							// Ignore this one but count it
-							$ignoreDeeperIfKeywords++;
-						} else {
-							// Add new IF to stack
-							$ifDeep++;
-							$this->ifHadMatch[$ifDeep] = false;
-							$ignoreTillNextIfKeyword[$ifDeep] = false;
-							$ignoreIfMode = false;
-						}
-					case Tokens::CONDITION_ELSEIF:
-					case Tokens::CONDITION_ELSE:
-						if ($ignoreDeeperIfKeywords <= 0) {
-							// Set ignore to true in advance
-							$ignoreTillNextIfKeyword[$ifDeep] = true;
-							$ignoreIfMode = true;
-							// When this if not matched yet
-							if (!$this->ifHadMatch[$ifDeep]) {
-								// Process conditions
-								$match = $this->checkConditions($commandParams);
-								// Match :)
-								if ($match) {
-									// We had a match, remember this
-									$this->ifHadMatch[$ifDeep] = true;
-									// Don't ignore this block
-									$ignoreTillNextIfKeyword[$ifDeep] = false;
-									$ignoreIfMode = false;
-								}
-							}
-						}
-						break;
-					case Tokens::CONDITION_END:
-						if ($ignoreDeeperIfKeywords > 0) {
-							$ignoreDeeperIfKeywords--;
-						} else {
-							// Remove from stack
-							$this->ifHadMatch[$ifDeep] = null;
-							$ignoreTillNextIfKeyword[$ifDeep] = null;
-							$ifDeep--;
-							if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
+			switch ($commandType) {
+				case Tokens::VARIABLE:
+					$value = $this->evaluateExpression($commandParams);
+					$result .= $value;
+					break;
+				case Tokens::PLAIN_TEXT:
+					// No special code, simply add it
+					$result .= $commandParams;
+					break;
+				case Tokens::COMMENT:
+					// Ignore
+					break;
+				case Tokens::LOOP_START:
+					$this->handleLoopStart($position, $to, $commandParams);
+					break;
+				case Tokens::LOOP_END:
+					$this->handleLoopEnd($position);
+					break;
+				case Tokens::CONDITION_IF:
+					if ($ignoreIfMode) {
+						// Ignore this one but count it
+						$ignoreDeeperIfKeywords++;
+					} else {
+						// Add new IF to stack
+						$ifDeep++;
+						$this->ifHadMatch[$ifDeep] = false;
+						$ignoreTillNextIfKeyword[$ifDeep] = false;
+						$ignoreIfMode = false;
+					}
+				case Tokens::CONDITION_ELSEIF:
+				case Tokens::CONDITION_ELSE:
+					if ($ignoreDeeperIfKeywords <= 0) {
+						// Set ignore to true in advance
+						$ignoreTillNextIfKeyword[$ifDeep] = true;
+						$ignoreIfMode = true;
+						// When this if not matched yet
+						if (!$this->ifHadMatch[$ifDeep]) {
+							// Process conditions
+							$match = $this->checkConditions($commandParams);
+							// Match :)
+							if ($match) {
+								// We had a match, remember this
+								$this->ifHadMatch[$ifDeep] = true;
+								// Don't ignore this block
+								$ignoreTillNextIfKeyword[$ifDeep] = false;
 								$ignoreIfMode = false;
-							} else {
-								$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
 							}
 						}
-						break;
-					case Tokens::SWITCH_START:
-						// CASE should come directly after, so we ignore from here all
-						// content (in best case, only spaces in template)
-						if ($ignoreSwitchMode) {
-							$ignoreDeeperSwitchKeywords++;
+					}
+					break;
+				case Tokens::CONDITION_END:
+					if ($ignoreDeeperIfKeywords > 0) {
+						$ignoreDeeperIfKeywords--;
+					} else {
+						// Remove from stack
+						$this->ifHadMatch[$ifDeep] = null;
+						$ignoreTillNextIfKeyword[$ifDeep] = null;
+						$ifDeep--;
+						if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
+							$ignoreIfMode = false;
 						} else {
-							$ignoreSwitchMode = true;
-							$switchDeep++;
-							$this->switchHadMatch[$switchDeep] = false;
-							$ignoreTillNextSwitchKeyword[$switchDeep] = false;
-							$switchVar[$switchDeep] = $this->evaluateExpression($commandParams);
+							$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
 						}
-						// No fall-through here, as opposite to our if handling, as the
-						// condition will follow in a case
-						break;
-					case Tokens::SWITCH_CASE:
-						if ($ignoreDeeperSwitchKeywords <= 0) {
-							$ignoreTillNextSwitchKeyword[$switchDeep] = true;
-							$ignoreSwitchMode = true;
-							if (!$this->switchHadMatch[$switchDeep]) {
-								// Process conditions
-								if ($commandParams == '*') {
-									$match = true;
-								} else {
-									$match = false;
-									// TODO: Needs ParamParser functionality instead of a stupid explode
-									$all = explode(',', $commandParams);
-									foreach ($all as $one) {
-										$expr = $this->evaluateExpression($one);
-										if ($expr == $switchVar[$switchDeep]) {
-											$match = true;
-											break;
-										}
+					}
+					break;
+				case Tokens::SWITCH_START:
+					// CASE should come directly after, so we ignore from here all
+					// content (in best case, only spaces in template)
+					if ($ignoreSwitchMode) {
+						$ignoreDeeperSwitchKeywords++;
+					} else {
+						$ignoreSwitchMode = true;
+						$switchDeep++;
+						$this->switchHadMatch[$switchDeep] = false;
+						$ignoreTillNextSwitchKeyword[$switchDeep] = false;
+						$switchVar[$switchDeep] = $this->evaluateExpression($commandParams);
+					}
+					// No fall-through here, as opposite to our if handling, as the
+					// condition will follow in a case
+					break;
+				case Tokens::SWITCH_CASE:
+					if ($ignoreDeeperSwitchKeywords <= 0) {
+						$ignoreTillNextSwitchKeyword[$switchDeep] = true;
+						$ignoreSwitchMode = true;
+						if (!$this->switchHadMatch[$switchDeep]) {
+							// Process conditions
+							if ($commandParams == '*') {
+								$match = true;
+							} else {
+								$match = false;
+								// TODO: Needs ParamParser functionality instead of a stupid explode
+								$all = explode(',', $commandParams);
+								foreach ($all as $one) {
+									$expr = $this->evaluateExpression($one);
+									if ($expr == $switchVar[$switchDeep]) {
+										$match = true;
+										break;
 									}
 								}
-								// Match :)
-								if ($match) {
-									// We had a match, remember this
-									$this->switchHadMatch[$switchDeep] = true;
-									// Don't ignore this block
-									$ignoreTillNextSwitchKeyword[$switchDeep] = false;
-									$ignoreSwitchMode = false;
-								}
 							}
-						}
-						break;
-					case Tokens::SWITCH_END:
-						if ($ignoreDeeperSwitchKeywords) {
-							$ignoreDeeperSwitchKeywords--;
-						} else {
-							// Remove from stack
-							$this->switchHadMatch[$switchDeep] = null;
-							$ignoreTillNextSwitchKeyword[$switchDeep] = null;
-							$switchDeep--;
-							if (!isset($ignoreTillNextSwitchKeyword[$switchDeep])) {
+							// Match :)
+							if ($match) {
+								// We had a match, remember this
+								$this->switchHadMatch[$switchDeep] = true;
+								// Don't ignore this block
+								$ignoreTillNextSwitchKeyword[$switchDeep] = false;
 								$ignoreSwitchMode = false;
-							} else {
-								$ignoreSwitchMode =
-									!empty($ignoreTillNextSwitchKeyword)
-									&& $ignoreTillNextSwitchKeyword[$switchDeep]
-								;
 							}
 						}
-						break;
-					case Tokens::VAR_SET:
-						// Define a variable/array
-						$parts = explode('=', $commandParams, 2);
-						$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
-						break;
-					case Tokens::TEMPLATE_INCLUDE:
-						if (empty($executor)) {
-							$executor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
-						}
-						$names = $this->evaluateExpression($commandParams);
-						if (!is_array($names)) {
-							$names = [$names];
-						}
-						$template = '';
-						foreach ($names as $tryName) {
-							$template = $this->environment->getLoader()->load($tryName);
-							if (!empty($template)) {
-								break;
-							}
-						}
-						$result .= $executor->render($template);
-						break;
-					case Tokens::FUNCTION_START:
-						$start = $position;
-						$end = false;
-						$pos = strpos($commandParams, '(');
-						$params = [];
-						if ($pos !== false) {
-							$name = trim(substr($commandParams, 0, $pos));
-							$param = substr($commandParams, $pos + 1);
-							$param = substr($param, 0, strpos($param, ')'));
-							foreach (explode(',', $param) as $param) {
-								$params[] = trim($param);
-							}
+					}
+					break;
+				case Tokens::SWITCH_END:
+					if ($ignoreDeeperSwitchKeywords) {
+						$ignoreDeeperSwitchKeywords--;
+					} else {
+						// Remove from stack
+						$this->switchHadMatch[$switchDeep] = null;
+						$ignoreTillNextSwitchKeyword[$switchDeep] = null;
+						$switchDeep--;
+						if (!isset($ignoreTillNextSwitchKeyword[$switchDeep])) {
+							$ignoreSwitchMode = false;
 						} else {
-							$name = trim($commandParams);
-						}
-						while ($position++ < $to) {
-							if ($this->parsed[$position][0] == Tokens::FUNCTION_END) {
-								$end = $position;
-								break;
-							}
-						}
-						if ($end === false) {
-							throw new \Exception('Cannot find end of macro ' . $name);
-						}
-						$this->macros[$name] = [$start + 1, $end - 1, $params];
-						break;
-					case Tokens::TEMPLATE_IMPORT:
-						$pos = strpos($commandParams, ' as ');
-						if ($pos !== false) {
-							$file = trim(substr($commandParams, 0, $pos));
-							$alias = trim(substr($commandParams, $pos + 3));
-						} else {
-							$file = trim($commandParams);
-							$alias = null;
-						}
-						if ($file === '_self') {
-							$newExecutor = $this;
-						} else {
-							$file = $this->evaluateExpression($file);
-							$newExecutor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
-							// todo: dirty workaround here ;)
-							$newExecutor->render($this->environment->getLoader()->load($file));
-						}
-						$this->includedMacros[$alias] = $newExecutor;
-						break;
-					default:
-						if (isset($this->commandHandler[$commandPlain])) {
-							$result .= $this->commandHandler[$commandPlain]
-								->handleCommand($this->context, $commandPlain, $commandParams)
+							$ignoreSwitchMode =
+								!empty($ignoreTillNextSwitchKeyword)
+								&& $ignoreTillNextSwitchKeyword[$switchDeep]
 							;
-						} else {
-							throw new \Exception('Unknown command: ' . $commandPlain);
 						}
-				}
+					}
+					break;
+				case Tokens::VAR_SET:
+					// Define a variable/array
+					$parts = explode('=', $commandParams, 2);
+					$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
+					break;
+				case Tokens::TEMPLATE_INCLUDE:
+					if (empty($executor)) {
+						$executor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
+					}
+					$names = $this->evaluateExpression($commandParams);
+					if (!is_array($names)) {
+						$names = [$names];
+					}
+					$template = '';
+					foreach ($names as $tryName) {
+						$template = $this->environment->getLoader()->load($tryName);
+						if (!empty($template)) {
+							break;
+						}
+					}
+					$result .= $executor->render($template);
+					break;
+				case Tokens::FUNCTION_START:
+					$start = $position;
+					$end = false;
+					$pos = strpos($commandParams, '(');
+					$params = [];
+					if ($pos !== false) {
+						$name = trim(substr($commandParams, 0, $pos));
+						$param = substr($commandParams, $pos + 1);
+						$param = substr($param, 0, strpos($param, ')'));
+						foreach (explode(',', $param) as $param) {
+							$params[] = trim($param);
+						}
+					} else {
+						$name = trim($commandParams);
+					}
+					while ($position++ < $to) {
+						if ($this->parsed[$position][0] == Tokens::FUNCTION_END) {
+							$end = $position;
+							break;
+						}
+					}
+					if ($end === false) {
+						throw new \Exception('Cannot find end of macro ' . $name);
+					}
+					$this->macros[$name] = [$start + 1, $end - 1, $params];
+					break;
+				case Tokens::TEMPLATE_IMPORT:
+					$pos = strpos($commandParams, ' as ');
+					if ($pos !== false) {
+						$file = trim(substr($commandParams, 0, $pos));
+						$alias = trim(substr($commandParams, $pos + 3));
+					} else {
+						$file = trim($commandParams);
+						$alias = null;
+					}
+					if ($file === '_self') {
+						$newExecutor = $this;
+					} else {
+						$file = $this->evaluateExpression($file);
+						$newExecutor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
+						// todo: dirty workaround here ;)
+						$newExecutor->render($this->environment->getLoader()->load($file));
+					}
+					$this->includedMacros[$alias] = $newExecutor;
+					break;
+				default:
+					if (isset($this->commandHandler[$commandPlain])) {
+						$result .= $this->commandHandler[$commandPlain]
+							->handleCommand($this->context, $commandPlain, $commandParams)
+						;
+					} else {
+						throw new \Exception('Unknown command: ' . $commandPlain);
+					}
 			}
 		}
 		
@@ -562,7 +562,7 @@ class DefaultExecutor implements ExecutionContext
 	private function storeVariables(&$arr)
 	{
 		foreach ($arr as &$val) {
-			if ($this->context->hasValue($val[0])) {
+			if ($val[0] !== null && $this->context->hasValue($val[0])) {
 				$val[1] = $this->context->getValue($val[0]);
 			}
 		}
@@ -571,6 +571,9 @@ class DefaultExecutor implements ExecutionContext
 	private function restoreValues(&$arr)
 	{
 		foreach ($arr as $val) {
+			if ($val[0] === null) {
+				continue;
+			}
 			$this->context->addValue($val[0], $val[1]);
 		}
 	}

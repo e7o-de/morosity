@@ -9,7 +9,7 @@ interface VariableContext
 	 * params) to a actual value.
 	 */
 	public function evaluateExpression(
-		$expression,
+		string $expression,
 		ExecutionContext $context = null
 	);
 	
@@ -17,17 +17,17 @@ interface VariableContext
 	 * Writes a variable value into store. Existing value with same name will
 	 * be overwritten.
 	 */
-	public function addValue($name, $value);
+	public function addValue(string $name, $value);
 	
 	/**
 	 * Get a variable value without any modification by filters etc.
 	 */
-	public function getValue($name);
+	public function getValue(string $name);
 	
 	/**
 	 * Checks if a variable is known at all.
 	 */
-	public function hasValue($name);
+	public function hasValue(string $name);
 	
 	public function pushStack(array $data);
 	public function popStack();

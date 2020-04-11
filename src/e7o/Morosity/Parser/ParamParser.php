@@ -21,7 +21,7 @@ class ParamParser
 		$key = '';
 		
 		for ($i = 0; $i < strlen($params); $i++) {
-			$char = substr($params, $i, 1);
+			$char = $params[$i];
 			switch ($char) {
 				case ' ':
 				case "\t":
@@ -71,7 +71,7 @@ class ParamParser
 		$open = 1;
 		
 		for ($i = $start + 1; $i < strlen($string); $i++) {
-			$char = substr($string, $i, 1);
+			$char = $string[$i];
 			switch ($char) {
 				case '[';
 					$open++;
@@ -90,7 +90,7 @@ class ParamParser
 	
 	private function findEndOfQuote(&$string, $start)
 	{
-		$char = substr($string, $start, 1);
+		$char = $string[$start];
 		do {
 			$nextQuote = strpos($string, $char, $start + 1);
 			if ($nextQuote === false) {

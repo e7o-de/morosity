@@ -18,7 +18,7 @@ class Processor implements VariableContext, Environment
 	
 	public function __construct()
 	{
-		$this->values = array();
+		$this->values = [];
 	}
 	
 	public function setLoader(Loader $loader)
@@ -31,34 +31,34 @@ class Processor implements VariableContext, Environment
 		return $this->loader;
 	}
 	
-	public function setCommandHandler($forType, Handler $handler)
+	public function setCommandHandler(string $forType, Handler $handler)
 	{
 		$this->commandHandler[$forType] = $handler;
 	}
 	
-	public function addValue($name, $value)
+	public function addValue(string $name, $value)
 	{
 		$this->values[$name] = $value;
 	}
 	
-	public function getValue($name)
+	public function getValue(string $name)
 	{
 		return $this->values[$name];
 	}
 	
-	public function hasValue($name)
+	public function hasValue(string $name)
 	{
 		return isset($this->values[$name]);
 	}
 	
-	public function addValues($valuesArray)
+	public function addValues(array $values)
 	{
-		$this->values += $valuesArray;
+		$this->values += $values;
 	}
 	
-	public function setValues($valuesArray)
+	public function setValues(array $values)
 	{
-		$this->values = $valuesArray;
+		$this->values = $values;
 	}
 	
 	public function pushStack(array $data)
@@ -71,13 +71,13 @@ class Processor implements VariableContext, Environment
 		unset($this->stack[count($this->stack) - 1]);
 	}
 	
-	public function render($template)
+	public function render(string $template)
 	{
 		$executor = new DefaultExecutor($this, $this, $this->commandHandler);
 		return $executor->render($template);
 	}
 	
-	public function evaluateExpression($expression, ExecutionContext $context = null)
+	public function evaluateExpression(string $expression, ExecutionContext $context = null)
 	{
 		switch (strtolower($expression)) {
 			case 'false':
@@ -92,7 +92,7 @@ class Processor implements VariableContext, Environment
 		
 		// Array?
 		if ($expression[0] == '[') {
-			// TODO: Improve functionality (quotation marks, sub-arrays etc.)
+			// TODO: Improve functionality (quotation marks, sub-arrays etc.) - use splitInTokens
 			$sub = substr($expression, 1, -1);
 			$sub = explode(',', $sub);
 			$val = [];
@@ -109,12 +109,12 @@ class Processor implements VariableContext, Environment
 		} else {
 			$pipeModifier = null;
 		}
-		// Check some special syntax (especially stuff which could contain dots) 
+		// Check some special syntax
 		if (is_numeric($expression)) {
 			$val = (int)$expression;
 		} else if (is_float($expression)) {
 			$val = (float)$expression;
-		} else if (strlen($expression) >= 5 && substr($expression, 0, 5) == 'loop.') {
+		} else if (substr($expression, 0, 5) == 'loop.') {
 			// Loop variable, first check context
 			if ($context === null) {
 				throw new \Exception('Cannot access LOOP variables without context');
@@ -175,20 +175,24 @@ class Processor implements VariableContext, Environment
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
 			$val = substr($expression, 1, -1);
 		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
-			// Macro call
+			// Function call -- Macro or internal function
 			$pos = strpos($expression, '(');
 			$name = trim(substr($expression, 0, $pos));
-			if (!$context->hasMacro($name)) {
-				throw new \Exception('Unknown macro ' . $name . ' called');
-			}
 			$params = substr($expression, $pos + 1);
-			$params = substr($params, 0, strpos($params, ')'));
+			$params = substr($params, 0, strrpos($params, ')'));
 			$args = [];
-			// todo: explode should care about sub-arrays etc. ;)
-			foreach (explode(',', $params) as $param) {
-				$args[] = $this->evaluateExpression(trim($param), $context);
+			$params = $this->splitInTokens($params);
+			foreach ($params as $param) {
+				$args[] = $this->evaluateExpression($param, $context);
 			}
-			$val = $context->callMacro($name, $args);
+			if ($context->hasMacro($name)) {
+				$val = $context->callMacro($name, $args);
+			} else if (Functions::has($name)) {
+				$val = array_shift($args);
+				$val = Functions::call($name, $val, $args);
+			} else {
+				throw new \Exception('Unknown macro/function ' . $name . ' called');
+			}
 		} else {
 			// Iterate through dots
 			$val = null;
@@ -233,13 +237,13 @@ class Processor implements VariableContext, Environment
 		}
 		// Post-process
 		if ($pipeModifier !== null) {
-			$val = $this->processParams($val, explode('|', $pipeModifier));
+			$val = $this->processParams($val, explode('|', $pipeModifier), $context);
 		}
 		// Done
 		return $val;
 	}
 	
-	private function countAndRemoveDots(&$string)
+	private function countAndRemoveDots(string &$string)
 	{
 		for ($i = 0; $i < strlen($string); $i++) {
 			if ($string[$i] != '.') {
@@ -252,7 +256,8 @@ class Processor implements VariableContext, Environment
 		return $i;
 	}
 	
-	private function processParams($value, $params)
+	// TODO: Kill and integrate in evaluateExpression
+	private function processParams($value, $params, ExecutionContext $context = null)
 	{
 		foreach ($params as $param) {
 			$param = trim($param);
@@ -262,186 +267,80 @@ class Processor implements VariableContext, Environment
 			if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
 				$param = substr($param, 0, $pPos) . ',' . substr($param, $pPos + 1, strlen($param) - $pPos - 2);
 			}
-			$param = str_getcsv($param, ',', '"');
+			$param = $this->splitInTokens($param);
 			// Preprocess params
 			for ($i = 1; $i < count($param); $i++) {
-				// Replacement of escaping characters str_getcsv does not remove
-				$param = str_replace('\"', '"', $param);
-				// Use variable instead of value itself
-				if ($param[$i][0] == '~') {
-					$param[$i] = $this->evaluateExpression(substr($param[$i], 1));
-				}
+				$param[$i] = $this->evaluateExpression($param[$i], $context);
 			}
-			//
-			switch (strtolower($param[0])) {
-			// Array
-				case 'array':
-					/*todo: remove, ist mit ~ ausreichend implementiert?
-					if (!is_numeric($param[1])) {
-						$param[1] = $this->getVarValue($param[1]);
-					}*/
-					if (!isset($value[$param[1]])) {
-						$value = '';
-					} else {
-						$value = $value[$param[1]];
-					}
-					break;
-				case 'split':
-				case 'explode':
-					$value = explode($param[1], $value);
-					break;
-				case 'join':
-				case 'implode':
-					$value = implode($param[1], $value);
-					break;
-				case 'count':
-					if (is_array($value)) {
-						$value = count($value);
-					} else {
-						$value = 0;
-					}
-					break;
-				case 'dump': // Debugging function
-					$value = str_replace('=>', '', print_r($value, true));
-					$value = str_replace('[', '<small>[', $value);
-					$value = str_replace(']', ']</small>', $value);
-					$value = str_replace(' ', '&nbsp;', $value);
-					$value = nl2br($value);
-					break;
-			// String
-				case 'uppercase':
-					$value = strtoupper($value);
-					break;
-				case 'lowercase':
-					$value = strtolower($value);
-					break;
-				case 'rot13':
-					$value = str_rot13($value);
-					break;
-				case 'shuffle':
-					$value = str_shuffle($value);
-					break;
-				case 'wordcount':
-					$value = str_word_count($value);
-					break;
-				case 'len':
-				case 'length':
-					$value = strlen($value);
-					break;
-				case 'cut':
-					$value = substr($value, 0, (int)$param[1]);
-					break;
-				case 'substr':
-					if (isset($param[2])) {
-						$value = substr($value, (int)$param[1], (int)$param[2]);
-					} else {
-						$value = substr($value, (int)$param[1]);
-					}
-					break;
-				case 'paragraphcut':
-					$pos = strpos($value, "\n", (int)$param[1] - 10);
-					if ($pos !== false) {
-						$value = substr($value, 0, $pos);
-						break;
-					}
-				case 'wordcut':
-					preg_match('/[[:space:]]/', $value, $captured, PREG_OFFSET_CAPTURE, (int)$param[1] - 5);
-					if (count($captured) > 0 || $captured[0][1] > 10) {
-						$pos = $captured[0][1];
-					} else {
-						$pos = (int)$param[1];
-					}
-					$value = substr($value, 0, $pos);
-					break;
-				case 'concat':
-					// ToDo: Untested
-					for ($i = 1; $i < count($param); $i++) {
-						$value .= $param[$i];
-					}
-					break;
-				case 'replace':
-					$value = str_replace($param[1], $param[2], $value);
-					break;
-				case 'e':
-				case 'encode':
-					$value = htmlentities($value, \ENT_QUOTES, 'UTF-8');
-					break;
-				case 'striphtml':
-					$value = strip_tags($value, '<br><p>');
-					break;
-				case 'nl2br':
-					$value = nl2br($value);
-					break;
-			// Math
-				case 'subtract':
-					if (!isset($param[1])) {
-						$param[1] = 0;
-					}
-					$param[1] *= -1;
-				case 'add':
-					if (!isset($param[1])) {
-						$param[1] = 0;
-					}
-					$value = $value + $param[1];
-					break;
-				case 'multiply':
-					if (!isset($param[1])) {
-						$param[1] = 1;
-					}
-					$value = $value * (double)$param[1];
-					break;
-				case 'divide':
-					if (isset($param[1]) && is_numeric($param[1]) && $param[1] != 0) {
-						$value = $value / (double)$param[1];
-					} else {
-						$value = 'infinity';
-					}
-					break;
-			// Date and time
-				case 'date':
-					// Use default format when no specification is made
-					if (empty($param[1])) {
-						$param[1] = \DateTime::W3C;
-					}
-					if ($value instanceof \DateTime) {
-						$value = $value->format($param[1]);
-					} else if (is_numeric($value)) {
-						$value = date($param[1], (int)$value);
-					} else {
-						// TODO: Try to parse as date
-						$value = '(Invalid date)';
-					}
-					// TODO: Replace it with language-specific month name
-					break;
-			// Convert and format
-				case 'int': $value = (int)$value; break;
-				case 'hex': $value = dechex($value); break;
-				case 'binary': $value = decbin($value); break;
-				case 'char': $value = chr($value); break;
-				case 'ord': $value = ord($value); break;
-				case 'round':
-					if (!isset($param[1]) || !is_numeric($param[1])) {
-						$param[1] = 0;
-					}
-					$value = round($value, (int)$param[1]);
-					break;
-				case 'json':
-					$value = json_encode($value);
-					break;
-				case 'unjson':
-					$value = json_decode($value, true);
-					break;
-			// Other
-				default:
-					$getVar = $this->evaluateExpression($param[0]);
-					if ($getVar instanceof \Closure) {
-						$value = $getVar($value, $params);
-					} else {
-						$value = '(Unknown function '.$param[0].')';
-					}
-					break;
-			}
+			// Call
+			$func = strtolower(array_shift($param));
+			$value = Functions::call($func, $value, $param);
 		}
 		return $value;
+	}
+	
+	// ToDo: Needs a complicated Regex with look-ahead etc. instead of this
+	// fancy function.
+	private function splitInTokens(string $str)
+	{
+		$l = strlen($str);
+		$start = 0;
+		$quotesOpen = null;
+		$escaped = 0;
+		$charsToRemove = [];
+		$collected = [];
+		$parents = 0;
+		$i = -1;
+		while (++$i < $l) {
+			$c = $str[$i];
+			switch ($c) {
+				case '\\':
+					$charsToRemove[] = $i - $start;
+					if ($i < $l && $str[$i + 1] == '\\') {
+						$i++;
+					} else {
+						$escaped = 2;
+					}
+					break;
+				case '"':
+				case "'":
+					if ($escaped > 0) {
+						// Skip
+					} else if ($c === $quotesOpen) {
+						$quotesOpen = null;
+					} else {
+						$quotesOpen = $c;
+					}
+					break;
+				case '(':
+					if ($quotesOpen === null) {
+						$parents++;
+					}
+					break;
+				case ')':
+					if ($quotesOpen === null) {
+						$parents--;
+					}
+					break;
+				case ',':
+					if ($quotesOpen === null && $parents == 0) {
+						$collected[] = $this->removeChars(substr($str, $start, $i - $start), $charsToRemove);
+						$charsToRemove = [];
+						$start = $i + 1;
+					}
+					break;
+			}
+			$escaped--;
+		}
+		$collected[] = $this->removeChars(substr($str, $start), $charsToRemove);
+		return $collected;
+	}
+	
+	private function removeChars(string $str, array $chars)
+	{
+		for ($i = count($chars) - 1; $i >= 0; $i--) {
+			$str = substr($str, 0, $chars[$i]) . substr($str, $chars[$i] + 1);
+		}
+		return trim($str);
 	}
 }

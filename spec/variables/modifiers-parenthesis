@@ -1,13 +1,22 @@
 ------------------------------------------------------------------------------
-With a pipe, a special modifier can be applied to a value. A few of them are
-supporting arguments, they can be appended via a comma or as function arguments.
+Functional form is allowed for arguments, as well as nesting them.
 ------------------------------------------------------------------------------
-{{ a     | json }}
-{{b|hex|rot13}}
-{{c|encode}}
+{{if(c, 1, 2)}}
+{{c|if(1, 2)}}
+{{a|join(",")}}
+{{a|join("\"")}}
+{{a|join(b)}}
+{{a|join(if(c,"+","-"))}}
+{{a|join(if(d,"+","-"))}}
+{{join(a, if(d, "+", "-"))}}
 ------------------------------------------------------------------------------
-{"a":[1,2],"b":10,"c":"<b>ü"}
+{"a":[1,2],"b":"-","c":true,"d":false}
 ------------------------------------------------------------------------------
-[1,2]
-n
-&lt;b&gt;&uuml;
+1
+1
+1,2
+1"2
+1-2
+1+2
+1-2
+1-2
