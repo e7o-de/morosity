@@ -5,22 +5,48 @@ include('vendor/autoload.php');
 use \e7o\Morosity\Morosity;
 use \e7o\Morosity\Loader\TestLoader;
 
+function diff($a, $b)
+{
+	$a = explode("\n", $a);
+	$b = explode("\n", $b);
+	$diff = [];
+	$maxl = 0;
+	for ($i = 0; $i < count($a); $i++) if (strlen($a[$i]) > $maxl) $maxl = strlen($a[$i]);
+	for ($i = 0; $i < count($b); $i++) if (strlen($b[$i]) > $maxl) $maxl = strlen($b[$i]);
+	$maxl = max($maxl, 10);
+	$diff[] =
+		'     | '
+		. str_pad('Expected', $maxl, ' ', STR_PAD_RIGHT)
+		. ' | Actual'
+	;
+	for ($i = 0; $i < max(count($a), count($b)); $i++) {
+		$ad = $a[$i] ?? '';
+		$bd = $b[$i] ?? '';
+		$diff[] =
+			(strcmp($ad, $bd) == 0 ? '     ' : "\x00\x1b[30m\x00\x1b[47;1m   * ")
+			. '| '
+			. str_pad($ad, $maxl, ' ', STR_PAD_RIGHT)
+			. ' | ' . str_pad($bd, $maxl + 1, ' ', STR_PAD_RIGHT)
+			. "\x00\x1b[0m"
+		;
+	}
+	return implode(PHP_EOL, $diff);
+}
+
 $templates = [
 	'dummy.dummy' => '-{{ dummy }}-',
 	'dummy.i' => '-{{ i }}-',
 	'dummy.macro' => '{% macro dummy(i) %}-{{ i }}-{% endmacro %}',
 ];
 
-$ctTotal = 0;
 $dir = dir(__DIR__);
 $m = new Morosity(new TestLoader());
 $fails = [];
 echo 'Morosity specification tester' . PHP_EOL;
 while ($group = $dir->read()) {
 	if (is_dir(__DIR__ . '/' . $group) && $group[0] != '.') {
-		$ctTotal++;
 		$ctGroup = 0;
-		echo PHP_EOL . 'Testing ' . $group . PHP_EOL. PHP_EOL;
+		echo PHP_EOL . ' - Testing ' . $group . PHP_EOL . '   ';
 		$dir2 = dir(__DIR__ . '/' . $group);
 		while ($feature = $dir2->read()) {
 			if ($feature[0] != '.') {
@@ -40,25 +66,31 @@ while ($group = $dir->read()) {
 							$data
 						);
 						if (trim($rendered) === trim($all[4])) {
-							echo '.';
+							echo "\x00\x1b[32;1m+\x00\x1b[0m";
 						} else {
-							$fails[] = [$name, trim($all[4]), $rendered];
-							echo 'F';
+							$fails[] = [$name, diff(trim($all[4]), $rendered)];
+							echo "\x00\x1b[31;1mF\x00\x1b[0m";
 						}
 					} catch (\Exception $e) {
 						$fails[] = [$name, $e->getMessage()];
-						echo 'E';
+						echo "\x00\x1b[33;1mE\x00\x1b[0m";
 					}
 				}
 			}
 		}
-		echo PHP_EOL . PHP_EOL . '  --> ' . $ctGroup . ' tests executed.' . PHP_EOL;
+		echo PHP_EOL . '   (' . $ctGroup . ' executed)' . PHP_EOL;
 		$dir2->close();
 	}
 }
-echo PHP_EOL . ' ==> ' . $ctTotal . ' groups tested.' . PHP_EOL;
 $dir->close();
 
 if (!empty($fails)) {
-	var_dump($fails);
+	echo PHP_EOL . "\x00\x1b[31;1mFOUND DIFFERENCES\x00\x1b[0m" . PHP_EOL . PHP_EOL;
+	foreach ($fails as $fail) {
+		echo "in \x00\x1b[37;1m" . $fail[0] . "\x00\x1b[0m:" . PHP_EOL;
+		echo $fail[1] . PHP_EOL . PHP_EOL;
+	}
+	exit(1);
+} else {
+	exit(0);
 }
