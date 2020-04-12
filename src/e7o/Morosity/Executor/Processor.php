@@ -102,10 +102,10 @@ class Processor implements VariableContext, Environment
 			return $val;
 		}
 		// Split params
-		$i = strpos($expression, '|');
-		if ($i !== false) {
-			$pipeModifier = substr($expression, $i + 1);
-			$expression = substr($expression, 0, $i);
+		$parts = $this->splitInTokens($expression);
+		if (count($parts) > 1) {
+			$expression = array_shift($parts);
+			$pipeModifier = $parts;
 		} else {
 			$pipeModifier = null;
 		}
@@ -236,8 +236,8 @@ class Processor implements VariableContext, Environment
 			}
 		}
 		// Post-process
-		if ($pipeModifier !== null) {
-			$val = $this->processParams($val, explode('|', $pipeModifier), $context);
+		if (!empty($pipeModifier)) {
+			$val = $this->processParams($val, $pipeModifier, $context);
 		}
 		// Done
 		return $val;
