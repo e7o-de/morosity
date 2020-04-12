@@ -43,13 +43,16 @@ $dir = dir(__DIR__);
 $m = new Morosity(new TestLoader());
 $fails = [];
 echo 'Morosity specification tester' . PHP_EOL;
+$pattern = '/' . ($argv[1] ?? '.') . '/i';
 while ($group = $dir->read()) {
 	if (is_dir(__DIR__ . '/' . $group) && $group[0] != '.') {
 		$ctGroup = 0;
-		echo PHP_EOL . ' - Testing ' . $group . PHP_EOL . '   ';
 		$dir2 = dir(__DIR__ . '/' . $group);
 		while ($feature = $dir2->read()) {
-			if ($feature[0] != '.') {
+			if ($feature[0] != '.' && preg_match($pattern, $group . '/' . $feature)) {
+				if ($ctGroup == 0) {
+					echo PHP_EOL . ' - Testing ' . $group . PHP_EOL . '   ';
+				}
 				$ctGroup++;
 				$all = file_get_contents(__DIR__ . '/' . $group . '/' . $feature);
 				$all = explode('------------------------------------------------------------------------------', $all);
@@ -78,7 +81,9 @@ while ($group = $dir->read()) {
 				}
 			}
 		}
-		echo PHP_EOL . '   (' . $ctGroup . ' executed)' . PHP_EOL;
+		if ($ctGroup > 0) {
+			echo PHP_EOL . '   (' . $ctGroup . ' executed)' . PHP_EOL;
+		}
 		$dir2->close();
 	}
 }
