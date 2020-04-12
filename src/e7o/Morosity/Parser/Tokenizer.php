@@ -9,16 +9,16 @@ abstract class Tokenizer
 	public static function parse(&$tmpl)
 	{
 		$parsed = [];
-		preg_match_all('/\{[{%#]/', $tmpl, $tokenPositions, PREG_OFFSET_CAPTURE);
-		$tokenPositions = $tokenPositions[0];
-		
-		$i = 0;
-		$oldi = 0;
-		$tokenCount = count($tokenPositions);
-		for ($idx = 0; $idx < $tokenCount; $idx++) {
-			$i = $tokenPositions[$idx][1];
-			// Find closing tag
-			$c = $tokenPositions[$idx][0][1];
+		$templateLength = strlen($tmpl);
+		$posStart = 0;
+		$previousEnd = 0;
+		$nextCheckPos = 0;
+		while ($posStart < $templateLength) {
+			$posStart = strpos($tmpl, '{', $nextCheckPos);
+			if ($posStart === false) {
+				break;
+			}
+			$c = $tmpl[$posStart + 1];
 			switch ($c) {
 				case '{':
 					$c = '}';
@@ -27,18 +27,27 @@ abstract class Tokenizer
 				case '#':
 					$type = Tokens::COMMENT;
 					break;
-				default:
+				case '%':
+					// We don't know the type yet, depends on the content
 					$type = null;
+					break;
+				default:
+					// Random {, just skipping this one
+					$nextCheckPos = $posStart + 1;
+					continue 2;
 			}
 			$toClose = $c . '}';
-			$j = strpos($tmpl, $toClose, $i);
-			if ($j > $i) {
+			$posEnd = strpos($tmpl, $toClose, $posStart + 2);
+			if ($posEnd !== false) {
 				// Closing tag found, push both parts to array
-				$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $oldi, $i - $oldi), null];
+				if ($posStart - $previousEnd > 0) {
+					$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $previousEnd, $posStart - $previousEnd), null];
+				}
 				
-				$currentToken = substr($tmpl, $i, $j - $i);
+				$currentToken = trim(substr($tmpl, $posStart + 2, $posEnd - $posStart - 2));
+				$custom = null;
 				if ($type === null) {
-					$commandType = explode(' ', trim(substr($currentToken, 2)), 2);
+					$commandType = explode(' ', $currentToken, 2);
 					$commandParams = isset($commandType[1]) ? $commandType[1] : '';
 					$commandType = strtolower(trim($commandType[0]));
 					switch ($commandType) {
@@ -86,21 +95,20 @@ abstract class Tokenizer
 							break;
 						default:
 							$type = Tokens::CUSTOM_COMMAND;
+							$custom = $commandType;
 					}
 				} else {
-					$commandParams = trim(substr($currentToken, 2));
+					$commandParams = $currentToken;
 				}
-				$parsed[] = [$type, $commandParams, $commandType ?? null];
-				// Remember positions
-				$i = $j + 2;
-				$oldi = $i;
+				$parsed[] = [$type, $commandParams, $custom];
+				$nextCheckPos = $previousEnd = $posEnd + 2;
 			} else {
 				// Parse error.
-				throw new \Exception('Missing end tag around #' . $i);
+				throw new \Exception('Missing end tag for tag started at #' . $posStart);
 			}
 		}
 		// Also add last piece of code to array
-		$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $oldi), null];
+		$parsed[] = [Tokens::PLAIN_TEXT, substr($tmpl, $previousEnd), null];
 		return $parsed;
 	}
 }
