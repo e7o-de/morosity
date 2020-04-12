@@ -290,13 +290,18 @@ class Processor implements VariableContext, Environment
 		$charsToRemove = [];
 		$collected = [];
 		$parents = 0;
-		$i = -1;
-		while (++$i < $l) {
-			$c = $str[$i];
+		preg_match_all('/["\'\\\\()|,]/', $str, $positions, PREG_OFFSET_CAPTURE);
+		$positions = $positions[0];
+		$l = count($positions);
+		for ($i = 0; $i < $l; $i++) {
+			$pos = $positions[$i][1];
+			$c = $str[$pos];
 			switch ($c) {
 				case '\\':
-					$charsToRemove[] = $i - $start;
-					if ($i < $l && $str[$i + 1] == '\\') {
+					if ($parents == 0) {
+						$charsToRemove[] = $pos - $start;
+					}
+					if ($pos < $l && $str[$pos + 1] == '\\') {
 						$i++;
 					} else {
 						$escaped = 2;
@@ -322,11 +327,12 @@ class Processor implements VariableContext, Environment
 						$parents--;
 					}
 					break;
+				case '|':
 				case ',':
 					if ($quotesOpen === null && $parents == 0) {
-						$collected[] = $this->removeChars(substr($str, $start, $i - $start), $charsToRemove);
+						$collected[] = $this->removeChars(substr($str, $start, $pos - $start), $charsToRemove);
 						$charsToRemove = [];
-						$start = $i + 1;
+						$start = $pos + 1;
 					}
 					break;
 			}
@@ -338,9 +344,14 @@ class Processor implements VariableContext, Environment
 	
 	private function removeChars(string $str, array $chars)
 	{
-		for ($i = count($chars) - 1; $i >= 0; $i--) {
-			$str = substr($str, 0, $chars[$i]) . substr($str, $chars[$i] + 1);
+		$r = [];
+		$len = count($chars);
+		$last = 0;
+		for ($i = 0; $i < $len; $i++) {
+			$r[] = substr($str, $last, $chars[$i] - $last);
+			$last = $chars[$i] + 1;
 		}
-		return trim($str);
+		$r[] = substr($str, $last);
+		return trim(implode('', $r));
 	}
 }
