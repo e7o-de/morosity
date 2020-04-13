@@ -55,32 +55,30 @@ $start = microtime(true);
 
 $m = new Morosity(new TestLoader());
 $ct = 0;
+$data = [
+	'long' => str_repeat('w', 500),
+	'var' => [
+		[
+			'sub' => [1, 2, 3, 4, 5, 6, 7, 8, 9],
+			'value' => 'a',
+		],
+		[
+			'sub' => [5, 6, 7, 8, 9, 10, 11, 12, 13],
+			'value' => 'b',
+		],
+		[
+			'sub' => ['hello world', 'something else'],
+			'value' => 'c',
+		],
+		[
+			'sub' => ['la la la la la'],
+			'value' => 'd',
+		],
+	],
+];
 while (microtime(true) - $start < 10.) {
 	$ct++;
-	$m->render(
-		'measure',
-		[
-			'long' => str_repeat('w', 500),
-			'var' => [
-				[
-					'sub' => [1, 2, 3, 4, 5, 6, 7, 8, 9],
-					'value' => 'a',
-				],
-				[
-					'sub' => [5, 6, 7, 8, 9, 10, 11, 12, 13],
-					'value' => 'b',
-				],
-				[
-					'sub' => ['hello world', 'something else'],
-					'value' => 'c',
-				],
-				[
-					'sub' => ['la la la la la'],
-					'value' => 'd',
-				],
-			],
-		]
-	);
+	$m->render('measure', $data);
 }
 $time = microtime(true) - $start;
 $avg = round($time * 1000 / $ct, 3);
