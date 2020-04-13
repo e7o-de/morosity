@@ -8,7 +8,8 @@ class Functions
 		'e' => 'encode',
 		'split' => 'explode',
 		'join' => 'implode',
-		'len' => 'length',
+		'len' => 'count',
+		'length' => 'count',
 	];
 	
 	public static function call(string &$func, &$value, array &$params)
@@ -48,9 +49,18 @@ class Functions
 	public static function count(&$value, &$param)
 	{
 		if (is_array($value)) {
-			$value = count($value);
+			return count($value);
 		} else {
-			$value = 0;
+			return strlen($value);
+		}
+	}
+	
+	public static function reverse(&$value, &$param)
+	{
+		if (is_array($value)) {
+			return array_reverse($value);
+		} else {
+			return strrev($value);
 		}
 	}
 	
@@ -80,17 +90,17 @@ class Functions
 	
 	public static function shuffle(&$value, &$param)
 	{
-		return str_shuffle($value);
+		if (is_array($value)) {
+			shuffle($value);
+			return $value;
+		} else {
+			return str_shuffle($value);
+		}
 	}
 	
 	public static function wordcount(&$value, &$param)
 	{
 		return str_word_count($value);
-	}
-	
-	public static function length(&$value, &$param)
-	{
-		return strlen($value);
 	}
 	
 	public static function cut(&$value, &$param)
