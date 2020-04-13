@@ -4,6 +4,7 @@ namespace e7o\Morosity\Executor;
 
 use \e7o\Morosity\Parser\Tokenizer;
 use \e7o\Morosity\Parser\Tokens;
+use \e7o\Morosity\Parser\ParamParser;
 
 class DefaultExecutor implements ExecutionContext
 {
@@ -362,107 +363,139 @@ class DefaultExecutor implements ExecutionContext
 			return true;
 		}
 		
-		// for AND by default. TODO, needs rework, also to support operators etc.
-		$mode = false;
+		$compare = ['==', '!=', '<=', '>=', '<', '>', 'in', 'notin', 'is', 'has'];
+		$bool = ['and', 'or'];
 		
-		$conditions = explode(';', $conditionString);
-		foreach ($conditions as $cond) {
-			if ($this->checkSingleCondition($cond) == $mode) {
-				return $mode;
-			}
-		}
-		return !$mode;
-	}
-	
-	private function checkSingleCondition($condition)
-	{
-		// Detect not condition
-		if ($condition[0] == '!') {
-			$condition = substr($condition, 1);
-			$not = true;
-		} else {
-			$not = false;
-		}
-		// Check operators; we need to ensure the correct order of the operators
-		// (> behind >= to prevent false detections)
-		$operators = array('==', '!=', '<=', '>=', '<', '>', ' in ', ' notin ', ' is');
-		$found = false;
-		foreach ($operators as $op) {
-			if (strpos($condition, $op) !== false) {
-				$found = true;
-				break;
-			}
-		}
-		if ($found) {
-			$v1 = trim(substr($condition, 0, strpos($condition, $op)));
-			$v2 = trim(substr($condition, strpos($condition, $op) + strlen($op)));
-		} else {
-			$v1 = trim($condition);
-			$op = '__has_value';
-			$v2 = null;
-		}
+		$conditions = ParamParser::split($conditionString, ' ');
 		
-		if ($v1 !== null) {
-			$v1 = $this->evaluateExpression($v1);
-		}
-		
-		if ($op === 'is') {
-			switch ($v2) {
-				case 'empty':
-					return empty($v1);
-				case 'not empty':
-					return !empty($v1);
-				case 'odd':
-					return ($v1 % 2 == 1) ^ $not;
-				case 'even':
-					return ($v1 % 2 == 0) ^ $not;
-				case 'numeric':
-					return (is_numeric($v1)) ^ $not;
-				default:
-					// todo, unknown comparision
-			}
-		} else {
-			if ($v2 !== null) {
-				$v2 = $this->evaluateExpression($v2);
+		// Detect + group by type
+		$l = count($conditions);
+		for ($i = 0; $i < $l; $i++) {
+			if (empty($conditions[$i])) {
+				continue;
 			}
 			
-			switch (trim($op)) {
-				case '==':
-					return (bool)($v1 == $v2) ^ $not;
-				case '!=':
-					return (bool)($v1 != $v2) ^ $not;
-				case '<=':
-					return (bool)($v1 <= $v2) ^ $not;
-				case '>=':
-					return (bool)($v1 >= $v2) ^ $not;
-				case '<':
-					return (bool)($v1 < $v2) ^ $not;
-				case '>':
-					return (bool)($v1 > $v2) ^ $not;
-				case 'in':
-					if (is_array($v2)) {
-						return in_array($v1, $v2) ^ $not;
-					} else {
-						return (strpos($v2, $v1) !== false) ^ $not;
-					}
-				case 'notin':
-					if (is_array($v2)) {
-						return !in_array($v1, $v2) ^ $not;
-					} else {
-						return (strpos($v2, $v1) === false) ^ $not;
-					}
-				case '__has_value': // Internal keyword
-					$hasValue =
-						is_array($v1)
-						|| is_string($v1) && strlen($v1) > 0
-						|| is_object($v1)
-						|| is_numeric($v1)
-						|| $v1 === true
-					;
-					return $hasValue ^ $not;
-				default:
-					return false ^ $not;
+			if ($conditions[$i][0] == '!') {
+				$not = true;
+				$conditions[$i] = substr($conditions[$i], 1);
+			} else {
+				$not = false;
 			}
+			
+			if ($conditions[$i][0] == '(') {
+				$conditions[$i] = [0, $this->checkConditions(substr($conditions[$i], 1, -2)), $not];
+			} else if (in_array($conditions[$i], $compare)) {
+				$conditions[$i] = [1, $conditions[$i], $not];
+			} else if (in_array($conditions[$i], $bool)) {
+				$conditions[$i] = [2, $conditions[$i], $not];
+			} else {
+				if ($i > 0 && $conditions[$i - 1][1] == 'is') {
+					$compResult = $conditions[$i];
+				} else {
+					$compResult = $this->evaluateExpression($conditions[$i]);
+					if ($not) {
+						$compResult = !$compResult;
+					}
+				}
+				$conditions[$i] = [0, $compResult, false];
+			}
+		}
+		
+		// TODO: Check correct order (never the same types (bool/compare is one type) directly after another)
+		
+		// Evaluate comparisions
+		for ($i = 0; $i < count($conditions); $i++) {
+			if ($conditions[$i][0] == 1) {
+				$compResult = $this->compare($conditions[$i][1], $conditions[$i - 1][1], $conditions[$i + 1][1]);
+				if ($conditions[$i - 1][2]) {
+					$compResult = !$compResult;
+				}
+				$conditions[$i - 1] = [0, $compResult, false];
+				unset($conditions[$i + 1]);
+				unset($conditions[$i]);
+				$i -= 2;
+			}
+		}
+		
+		// Evaluate boolean operators, each one for its own, in the given precedence
+		foreach ($bool as $operator) {
+			$conditions = array_values($conditions);
+			$l = count($conditions);
+			for ($i = 0; $i < $l; $i++) {
+				if ($conditions[$i][0] == 2 && $conditions[$i][1] == $operator) {
+					$v1 = $conditions[$i - 1][1];
+					$v2 = $conditions[$i + 1][1];
+					switch ($operator) {
+						case 'and':
+							$r = (bool)$v1 && (bool)$v2;
+							break;
+						case 'or':
+							$r = (bool)$v1 || (bool)$v2;
+							break;
+					}
+					$conditions[$i + 1] = [0, $r, false];
+					unset($conditions[$i - 1]);
+					unset($conditions[$i]);
+				}
+			}
+		}
+		
+		return array_shift($conditions)[1];
+	}
+	
+	private function compare($op, $v1, $v2)
+	{
+		switch (trim($op)) {
+			case 'is':
+				switch ($v2) {
+					case 'empty':
+						return empty($v1);
+					case 'not empty':
+						return !empty($v1);
+					case 'odd':
+						return ($v1 % 2 == 1);
+					case 'even':
+						return ($v1 % 2 == 0);
+					case 'numeric':
+						return (is_numeric($v1));
+					default:
+						// todo, unknown comparision
+						return false;
+				}
+			case 'has':
+				if (is_array($v1)) {
+					return array_key_exists($v2, $v1);
+				} else if (is_object($v1)) {
+					return property_exists($v1, $v2);
+				} else {
+					return false;
+				}
+			case '==':
+				return (bool)($v1 == $v2);
+			case '!=':
+				return (bool)($v1 != $v2);
+			case '<=':
+				return (bool)($v1 <= $v2);
+			case '>=':
+				return (bool)($v1 >= $v2);
+			case '<':
+				return (bool)($v1 < $v2);
+			case '>':
+				return (bool)($v1 > $v2);
+			case 'in':
+				if (is_array($v2)) {
+					return in_array($v1, $v2);
+				} else {
+					return (strpos($v2, $v1) !== false);
+				}
+			case 'notin':
+				if (is_array($v2)) {
+					return !in_array($v1, $v2);
+				} else {
+					return (strpos($v2, $v1) === false);
+				}
+			default:
+				return false;
 		}
 	}
 	
