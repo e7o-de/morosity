@@ -5,9 +5,13 @@ supporting arguments, they can be appended via a comma or as function arguments.
 {{ a     | json }}
 {{b|hex|rot13}}
 {{c|encode}}
+{{d|md5}}
+{{d|hash("whirlpool")|cut(10)}}
 ------------------------------------------------------------------------------
-{"a":[1,2],"b":10,"c":"<b>ü"}
+{"a":[1,2],"b":10,"c":"<b>ü","d":"Hello World!"}
 ------------------------------------------------------------------------------
 [1,2]
 n
 &lt;b&gt;&uuml;
+ed076287532e86365e841e92bfc50d8c
+d4b3ad3619

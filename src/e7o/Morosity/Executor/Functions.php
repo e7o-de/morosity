@@ -88,6 +88,16 @@ class Functions
 		return str_rot13($value);
 	}
 	
+	public static function md5(&$value, &$param)
+	{
+		return md5($value);
+	}
+	
+	public static function hash(&$value, &$param)
+	{
+		return hash($param[0] ?? 'md5', $value);
+	}
+	
 	public static function shuffle(&$value, &$param)
 	{
 		if (is_array($value)) {
@@ -278,9 +288,5 @@ class Functions
 	public static function not(&$value, &$param)
 	{
 		return !((bool)$param[0] ?? $value);
-	}
-	
-	public static function or(&$value, &$param)
-	{
 	}
 }
