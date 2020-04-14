@@ -3,14 +3,24 @@
 namespace e7o\Morosity;
 
 use \e7o\Morosity\Loader\Loader;
+use \e7o\Morosity\Executor\Handler;
 
 class Morosity
 {
+	private $processor;
 	private $loader;
 	
 	public function __construct(Loader $loader)
 	{
 		$this->loader = $loader;
+		$processor = new Executor\Processor;
+		$processor->setLoader($loader);
+		$this->processor = $processor;
+	}
+	
+	public function setCommandHandler(string $command, Handler $handler)
+	{
+		$this->processor->setCommandHandler($command, $handler);
 	}
 	
 	public function render(string $file, array $params = [])
@@ -21,10 +31,7 @@ class Morosity
 	
 	public function renderString(string $template, array $params = [])
 	{
-		$processor = new Executor\Processor;
-		$processor->setValues($params);
-		$processor->setLoader($this->loader);
-		return $processor->render($template);
+		$this->processor->setValues($params);
+		return $this->processor->render($template);
 	}
 }
-
