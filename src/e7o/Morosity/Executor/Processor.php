@@ -13,6 +13,7 @@ class Processor implements VariableContext, Environment
 	// Extensions
 	private $commandHandler = [];
 	private $loader;
+	private $functions = [];
 	
 	// Additonal values
 	private $stack = [];
@@ -35,6 +36,11 @@ class Processor implements VariableContext, Environment
 	public function setCommandHandler(string $forType, Handler $handler)
 	{
 		$this->commandHandler[$forType] = $handler;
+	}
+	
+	public function addFunction($name, \Closure $function = null)
+	{
+		$this->functions[$name] = $function;
 	}
 	
 	public function addValue(string $name, $value)
@@ -197,6 +203,9 @@ class Processor implements VariableContext, Environment
 			}
 			if ($context->hasMacro($name)) {
 				$val = $context->callMacro($name, $args);
+			} else if (!empty($this->functions[$name])) {
+				$f = $this->functions[$name];
+				$val = $f(...$args);
 			} else if (Functions::has($name)) {
 				$val = array_shift($args);
 				$val = Functions::call($name, $val, $args);

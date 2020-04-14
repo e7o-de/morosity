@@ -23,6 +23,11 @@ class Morosity
 		$this->processor->setCommandHandler($command, $handler);
 	}
 	
+	public function addFunction($name, \Closure $function = null)
+	{
+		$this->processor->addFunction($name, $function);
+	}
+	
 	public function render(string $file, array $params = [])
 	{
 		$template = $this->loader->load($file);
