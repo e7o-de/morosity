@@ -223,6 +223,9 @@ class Functions
 		} else {
 			// Try to parse value as date
 			try {
+				if (empty($value)) {
+					$value = 'Now';
+				}
 				$value = new \DateTime($value);
 				$value = $value->format($param[0]);
 			} catch (\Exception $e) {
@@ -231,6 +234,17 @@ class Functions
 		}
 		// TODO: Replace it with language-specific month name
 		return $value;
+	}
+	
+	public static function now(&$value, &$param)
+	{
+		if (is_string($value)) {
+			$null = null;
+			$p = [$value];
+			return static::date($null, $p);
+		} else {
+			return new \DateTime('Now');
+		}
 	}
 	
 	public static function int(&$value, &$param)
