@@ -216,7 +216,8 @@ class DefaultExecutor implements ExecutionContext
 					$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
 					break;
 				case Tokens::TEMPLATE_INCLUDE:
-					if (empty($executor)) {
+					list($commandParams, $alias) = $this->splitAs($commandParams);
+					if (empty($executor) || $alias) {
 						$executor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
 					}
 					$names = $this->evaluateExpression($commandParams);
@@ -231,6 +232,10 @@ class DefaultExecutor implements ExecutionContext
 						}
 					}
 					$result .= $executor->render($template);
+					if ($alias) {
+						$this->includedMacros[$alias] = $executor;
+						$executor = null;
+					}
 					break;
 				case Tokens::FUNCTION_START:
 					$start = $position;
@@ -259,14 +264,7 @@ class DefaultExecutor implements ExecutionContext
 					$this->macros[$name] = [$start + 1, $end - 1, $params];
 					break;
 				case Tokens::TEMPLATE_IMPORT:
-					$pos = strpos($commandParams, ' as ');
-					if ($pos !== false) {
-						$file = trim(substr($commandParams, 0, $pos));
-						$alias = trim(substr($commandParams, $pos + 3));
-					} else {
-						$file = trim($commandParams);
-						$alias = null;
-					}
+					list($file, $alias) = $this->splitAs($commandParams);
 					if ($file === '_self') {
 						$newExecutor = $this;
 					} else {
@@ -289,6 +287,19 @@ class DefaultExecutor implements ExecutionContext
 		}
 		
 		return $result;
+	}
+	
+	private function splitAs($commandParams)
+	{
+		$pos = strpos($commandParams, ' as ');
+		if ($pos !== false) {
+			$file = trim(substr($commandParams, 0, $pos));
+			$alias = trim(substr($commandParams, $pos + 3));
+		} else {
+			$file = trim($commandParams);
+			$alias = null;
+		}
+		return [$file, $alias];
 	}
 	
 	private function handleLoopStart(&$position, $maxPosition, $params)

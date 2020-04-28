@@ -37,6 +37,7 @@ $templates = [
 	'dummy.dummy' => '-{{ dummy }}-',
 	'dummy.i' => '-{{ i }}-',
 	'dummy.macro' => '{% macro dummy(i) %}-{{ i }}-{% endmacro %}',
+	'dummy.imacro' => '{% macro dummy(i) %}-{{ i }}-{% endmacro %}imported',
 ];
 
 $dir = dir(__DIR__);
