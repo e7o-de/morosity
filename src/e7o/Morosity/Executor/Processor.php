@@ -84,7 +84,7 @@ class Processor implements VariableContext, Environment
 		return $executor->render($template);
 	}
 	
-	public function evaluateExpression(string $expression, ExecutionContext $context = null)
+	public function evaluateExpression(string $expression, ExecutionContext $context = null, $alreadyUnescaped = false)
 	{
 		switch (strtolower($expression)) {
 			case 'false':
@@ -114,6 +114,8 @@ class Processor implements VariableContext, Environment
 			} else {
 				return $val;
 			}
+		} else if ($alreadyUnescaped) {
+			$pipeModifier = null;
 		} else {
 			$parts = ParamParser::split($expression);
 			if (count($parts) > 1) {
@@ -123,6 +125,7 @@ class Processor implements VariableContext, Environment
 				$pipeModifier = null;
 			}
 		}
+		
 		// Check some special syntax
 		if (is_numeric($expression)) {
 			$val = (int)$expression;
@@ -189,8 +192,10 @@ class Processor implements VariableContext, Environment
 			$range = explode('..', $expression);
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
-			$expression = ParamParser::split($expression); // For the escaping stuff
-			$val = substr($expression[0], 1, -1);
+			if (!$alreadyUnescaped) {
+				$expression = ParamParser::split($expression)[0]; // For the escaping stuff
+			}
+			$val = substr($expression, 1, -1);
 		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
 			// Function call -- Macro or internal function
 			$pos = strpos($expression, '(');
@@ -276,7 +281,7 @@ class Processor implements VariableContext, Environment
 		return $i;
 	}
 	
-	// TODO: Kill and integrate in evaluateExpression
+	// TODO: Kill and integrate in evaluateExpression, especially the 3rd parameter to it
 	private function processParams($value, $params, ExecutionContext $context = null)
 	{
 		foreach ($params as $param) {
@@ -286,16 +291,15 @@ class Processor implements VariableContext, Environment
 			}
 			if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
 				$shift = substr($param, 0, $pPos);
-var_dump($param, substr($param, $pPos + 1, strlen($param) - $pPos - 2));
-				$param = ParamParser::split(substr($param, $pPos + 1, strlen($param) - $pPos - 2));
-var_dump($param);
+				$param = substr($param, $pPos + 1, strlen($param) - $pPos - 2);
+				$param = ParamParser::split($param);
 				array_unshift($param, $shift);
 			} else {
 				$param = ParamParser::split($param);
 			}
 			// Preprocess params
 			for ($i = 1; $i < count($param); $i++) {
-				$param[$i] = $this->evaluateExpression($param[$i], $context);
+				$param[$i] = $this->evaluateExpression($param[$i], $context, true);
 			}
 			// Call
 			$func = strtolower(array_shift($param));
