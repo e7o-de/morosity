@@ -189,7 +189,8 @@ class Processor implements VariableContext, Environment
 			$range = explode('..', $expression);
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
-			$val = substr($expression, 1, -1);
+			$expression = ParamParser::split($expression); // For the escaping stuff
+			$val = substr($expression[0], 1, -1);
 		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
 			// Function call -- Macro or internal function
 			$pos = strpos($expression, '(');
@@ -284,9 +285,14 @@ class Processor implements VariableContext, Environment
 				continue;
 			}
 			if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
-				$param = substr($param, 0, $pPos) . ',' . substr($param, $pPos + 1, strlen($param) - $pPos - 2);
+				$shift = substr($param, 0, $pPos);
+var_dump($param, substr($param, $pPos + 1, strlen($param) - $pPos - 2));
+				$param = ParamParser::split(substr($param, $pPos + 1, strlen($param) - $pPos - 2));
+var_dump($param);
+				array_unshift($param, $shift);
+			} else {
+				$param = ParamParser::split($param);
 			}
-			$param = ParamParser::split($param);
 			// Preprocess params
 			for ($i = 1; $i < count($param); $i++) {
 				$param[$i] = $this->evaluateExpression($param[$i], $context);

@@ -4,6 +4,11 @@ namespace e7o\Morosity\Parser;
 
 class ParamParser
 {
+	private static $simpleEscapers = [
+		't' => "\t", 'n' => "\n", 'r' => "\r", 'a' => "\a",
+		'b' => "\b", 'f' => "\f", 'v' => "\v", "\n" => null, "\r" => null,
+	];
+	
 	/**
 	* Splits a text into tokens, separated by "|" and ",". Additional characters
 	* can be given in $splitInAddition (they need to be regex-safe, so e.g. a "["
@@ -14,7 +19,6 @@ class ParamParser
 		$l = strlen($str);
 		$start = 0;
 		$quotesOpen = null;
-		$escaped = 0;
 		$charsToRemove = [];
 		$collected = [];
 		$parents = 0;
@@ -28,18 +32,24 @@ class ParamParser
 				case '\\':
 					if ($parents == 0) {
 						$charsToRemove[] = $pos - $start;
+						$cn = $str[$pos + 1];
+						if (array_key_exists($cn, static::$simpleEscapers)) {
+							if (static::$simpleEscapers[$cn] === null) {
+								$charsToRemove[] = $pos - $start + 1;
+							} else {
+								$str[$pos + 1] = static::$simpleEscapers[$cn];
+							}
+						// todo: check for \u0000 or \x0000 and so
+						} // keep everything else as it is
 					}
-					if ($pos < $l && $str[$pos + 1] == '\\') {
+					if ($positions[$i + 1][1] == $pos + 1) {
+						// Skipping next one if it's the thing we've escaped
 						$i++;
-					} else {
-						$escaped = 2;
 					}
 					break;
 				case '"':
 				case "'":
-					if ($escaped > 0) {
-						// Skip
-					} else if ($c === $quotesOpen) {
+					if ($c === $quotesOpen) {
 						$quotesOpen = null;
 					} else {
 						$quotesOpen = $c;
@@ -66,7 +76,6 @@ class ParamParser
 					}
 					break;
 			}
-			$escaped--;
 		}
 		$collected[] = static::removeChars(substr($str, $start), $charsToRemove);
 		return $collected;
