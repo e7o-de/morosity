@@ -382,10 +382,6 @@ class DefaultExecutor implements ExecutionContext
 		// Detect + group by type
 		$l = count($conditions);
 		for ($i = 0; $i < $l; $i++) {
-			if (empty($conditions[$i])) {
-				continue;
-			}
-			
 			if ($conditions[$i][0] == '!') {
 				$not = true;
 				$conditions[$i] = substr($conditions[$i], 1);
