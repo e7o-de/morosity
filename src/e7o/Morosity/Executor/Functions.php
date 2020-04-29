@@ -157,6 +157,11 @@ class Functions
 		return $value;
 	}
 	
+	public static function repeat(&$value, &$param)
+	{
+		return str_repeat($value, $param[0]);
+	}
+	
 	public static function replace(&$value, &$param)
 	{
 		return str_replace($param[0], $param[1], $value);
@@ -191,6 +196,16 @@ class Functions
 			$param[0] = 0;
 		}
 		return $value + $param[0];
+	}
+	
+	public static function increment(&$value, &$param)
+	{
+		return $value + 1;
+	}
+	
+	public static function decrement(&$value, &$param)
+	{
+		return $value - 1;
 	}
 	
 	public static function multiply(&$value, &$param)
