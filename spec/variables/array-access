@@ -1,8 +1,23 @@
 ------------------------------------------------------------------------------
-Elements of arrays can be accessed via the dot syntax.
+Elements of arrays can be accessed via the dot or, for variable-based indicies,
+the common bracket syntax. Only a variable name is allowed inside [ and ],
+no function calls etc. possible.
 ------------------------------------------------------------------------------
 {{ v1.v2.v3.v4 }}
+{{ v5[name1][name2].v8 }}
+{{ v5["v6"]["v7"].v8 }}
+{{ v8[add(1, number1)] }}
 ------------------------------------------------------------------------------
-{"v1": {"v2": {"v3": {"v4": 5}}}}
+{
+    "v1": {"v2": {"v3": {"v4": 5}}},
+    "v5": {"v6": {"v7": {"v8": 8}}},
+    "v8": ["a", "b", "c", "d"],
+    "name1": "v6",
+    "name2": "v7",
+    "number1": 1
+}
 ------------------------------------------------------------------------------
 5
+8
+8
+c

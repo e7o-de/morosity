@@ -221,6 +221,14 @@ class Processor implements VariableContext, Environment
 		} else {
 			// Iterate through dots
 			$val = null;
+			$expression = preg_replace_callback(
+				'/\[([a-z0-9()"\'\\\\, ]+)\]/i',
+				function ($match) use ($context) {
+					$v = $this->evaluateExpression($match[1], $context);
+					return '.' . $v;
+				},
+				$expression
+			);
 			foreach (explode('.', $expression) as $expressionSub) {
 				$expressionSub = trim($expressionSub);
 				if ($expressionSub === '') {
