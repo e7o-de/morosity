@@ -235,18 +235,6 @@ class Processor implements VariableContext, Environment
 					$val = null; // shouldn't happen i guess
 				} else if (is_array($val) && isset($val[$expressionSub])) {
 					$val = $val[$expressionSub];
-				} else if ($expressionSub[0] == ':') {
-					// Special character
-					// (todo: remove)
-					switch ($expressionSub) {
-						case ':pipe': $val = '|'; break;
-						case ':comma': $val = ','; break;
-						case ':colon': $val = ':'; break;
-						case ':lbrace': $val = '{'; break;
-						case ':rbrace': $val = '}'; break;
-						case ':at': $val = '@'; break;
-						default: $val = '';
-					}
 				} else {
 					$found = false;
 					for ($i = count($this->stack) - 1; $i >= 0; $i--) {
