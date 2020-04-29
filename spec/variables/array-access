@@ -1,7 +1,8 @@
 ------------------------------------------------------------------------------
 Elements of arrays can be accessed via the dot or, for variable-based indicies,
-the common bracket syntax. Only a variable name is allowed inside [ and ],
-no function calls etc. possible.
+the common bracket syntax. Inside [ and ], there's only a very restricted
+set of code possible. Some basic functions do work, but it's neitehr tested
+nor officially supported yet :)
 ------------------------------------------------------------------------------
 {{ v1.v2.v3.v4 }}
 {{ v5[name1][name2].v8 }}
