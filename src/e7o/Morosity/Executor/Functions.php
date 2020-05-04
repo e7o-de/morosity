@@ -169,7 +169,7 @@ class Functions
 	
 	public static function encode(&$value, &$param)
 	{
-		return htmlentities($value, \ENT_QUOTES, 'UTF-8');
+		return @htmlentities($value, \ENT_QUOTES, 'UTF-8');
 	}
 	
 	public static function striphtml(&$value, &$param)
