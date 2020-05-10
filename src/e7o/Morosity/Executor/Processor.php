@@ -97,28 +97,15 @@ class Processor implements VariableContext, Environment
 				return '';
 		}
 		
-		// Split params, extra care for arrays (TODO: Remove)
-		if ($expression[0] == '[') {
-			// TODO: This cannot handle nested arrays yet (would be slower).
-			$i = strpos($expression, ']');
-			$sub = substr($expression, 1, $i - 1);
-			$rest = substr($expression, $i + 1);
-			$sub = ParamParser::split($sub);
-			$val = [];
-			foreach ($sub as $s) {
-				$val[] = $this->evaluateExpression(trim($s));
-			}
-			if (strlen($rest) > 0) {
-				$pipeModifier = ParamParser::split($rest);
-				$expression = $val;
-			} else {
-				return $val;
-			}
-		} else if ($alreadyUnescaped) {
+		if ($alreadyUnescaped) {
 			$pipeModifier = null;
 		} else {
 			$parts = ParamParser::split($expression);
-			if (count($parts) > 1) {
+			if ($expression[0] == '[') {
+				$expression = $this->evaluateArray($parts[0], $context);
+				array_shift($parts);
+				$pipeModifier = $parts;
+			} else if (count($parts) > 1) {
 				$expression = array_shift($parts);
 				$pipeModifier = $parts;
 			} else {
@@ -127,12 +114,12 @@ class Processor implements VariableContext, Environment
 		}
 		
 		// Check some special syntax
-		if (is_numeric($expression)) {
+		if (is_array($expression)) {
+			$val = $expression;
+		} else if (is_numeric($expression)) {
 			$val = (int)$expression;
 		} else if (is_float($expression)) {
 			$val = (float)$expression;
-		} else if (is_array($expression)) {
-			// Just keep that
 		} else if (substr($expression, 0, 5) == 'loop.') {
 			// Loop variable, first check context
 			if ($context === null) {
@@ -297,5 +284,21 @@ class Processor implements VariableContext, Environment
 		$i = strlen($string);
 		$string = '';
 		return $i;
+	}
+	
+	private function evaluateArray($string, $context)
+	{
+		$string = substr($string, 1, -1);
+		$sub = ParamParser::split($string);
+		$val = [];
+		foreach ($sub as $s) {
+			$s = trim($s);
+			if (strlen($s) == 0) {
+				// trailing comma
+				continue;
+			}
+			$val[] = $this->evaluateExpression($s, $context);
+		}
+		return $val;
 	}
 }

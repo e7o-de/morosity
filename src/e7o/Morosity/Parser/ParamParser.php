@@ -22,7 +22,7 @@ class ParamParser
 		$charsToRemove = [];
 		$collected = [];
 		$parents = 0;
-		preg_match_all('/["\'\\\\()|,' . $splitInAddition . ']/', $str, $positions, PREG_OFFSET_CAPTURE);
+		preg_match_all('/["\'\\\\()\[\]|,' . $splitInAddition . ']/', $str, $positions, PREG_OFFSET_CAPTURE);
 		$positions = $positions[0];
 		$l = count($positions);
 		for ($i = 0; $i < $l; $i++) {
@@ -56,11 +56,15 @@ class ParamParser
 					}
 					break;
 				case '(':
+				case '[':
+					// No differentiation between types - not ideal, but easy and
+					// with correct syntax usage by the user, it works as expected.
 					if ($quotesOpen === null) {
 						$parents++;
 					}
 					break;
 				case ')':
+				case ']':
 					if ($quotesOpen === null) {
 						$parents--;
 					}
