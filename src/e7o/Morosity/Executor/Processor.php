@@ -256,10 +256,32 @@ class Processor implements VariableContext, Environment
 				}
 			}
 		}
+		
 		// Post-process
 		if (!empty($pipeModifier)) {
-			$val = $this->processParams($val, $pipeModifier, $context);
+			foreach ($pipeModifier as $param) {
+				$param = trim($param);
+				if (strlen($param) == 0) {
+					continue;
+				}
+				if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
+					$shift = substr($param, 0, $pPos);
+					$param = substr($param, $pPos + 1, strlen($param) - $pPos - 2);
+					$param = ParamParser::split($param);
+					array_unshift($param, $shift);
+				} else {
+					$param = ParamParser::split($param);
+				}
+				// Preprocess params
+				for ($i = 1; $i < count($param); $i++) {
+					$param[$i] = $this->evaluateExpression($param[$i], $context, true);
+				}
+				// Call
+				$func = strtolower(array_shift($param));
+				$val = Functions::call($func, $val, $param);
+			}
 		}
+		
 		// Done
 		return $val;
 	}
@@ -275,32 +297,5 @@ class Processor implements VariableContext, Environment
 		$i = strlen($string);
 		$string = '';
 		return $i;
-	}
-	
-	// TODO: Kill and integrate in evaluateExpression, especially the 3rd parameter to it
-	private function processParams($value, $params, ExecutionContext $context = null)
-	{
-		foreach ($params as $param) {
-			$param = trim($param);
-			if (strlen($param) == 0) {
-				continue;
-			}
-			if (($pPos = strpos($param, '(')) !== false && $param[-1] == ')') {
-				$shift = substr($param, 0, $pPos);
-				$param = substr($param, $pPos + 1, strlen($param) - $pPos - 2);
-				$param = ParamParser::split($param);
-				array_unshift($param, $shift);
-			} else {
-				$param = ParamParser::split($param);
-			}
-			// Preprocess params
-			for ($i = 1; $i < count($param); $i++) {
-				$param[$i] = $this->evaluateExpression($param[$i], $context, true);
-			}
-			// Call
-			$func = strtolower(array_shift($param));
-			$value = Functions::call($func, $value, $param);
-		}
-		return $value;
 	}
 }
