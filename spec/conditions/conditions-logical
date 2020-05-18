@@ -6,21 +6,17 @@ mark for negation.
 {% if !t1 %}y{% else %}n{% endif %}
 {% if t1 or t2 %}y{% else %}n{% endif %}
 {% if t1 or f1 %}y{% else %}n{% endif %}
-{% if t1 and i == 4 %}y{% else %}n{% endif %}
-{% if      f1 and   i    == 4 %}y{% else %}n{% endif %}
 {% if t1 and t2 %}y{% else %}n{% endif %}
 {% if t1 and t2 or f1 and f2 %}y{% else %}n{% endif %}
 {% if t1 and (t2 or f1) and f2 %}y{% else %}n{% endif %}
 {% if t1 and !(t2 or f1) and !f2 %}y{% else %}n{% endif %}
 ------------------------------------------------------------------------------
-{"t1": true, "f1": false, "t2": true, "f2": false, "i": 4, "j": 5}
+{"t1": true, "f1": false, "t2": true, "f2": false}
 ------------------------------------------------------------------------------
 y
 n
 y
 y
-y
-n
 y
 y
 n

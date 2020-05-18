@@ -420,6 +420,7 @@ class DefaultExecutor implements ExecutionContext
 				$conditions[$i - 1] = [0, $compResult, false];
 				unset($conditions[$i + 1]);
 				unset($conditions[$i]);
+				$conditions = array_values($conditions);
 				$i -= 2;
 			}
 		}
