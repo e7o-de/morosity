@@ -591,7 +591,15 @@ class DefaultExecutor implements ExecutionContext
 			$frame = [];
 			$l = count($macro[2]);
 			for ($i = 0; $i < $l; $i++) {
-				$frame[$macro[2][$i]] = $args[$i] ?? null;
+				switch ($macro[2][$i]) {
+					case '*':
+						foreach (($args[$i] ?? []) as $k => $v) {
+							$frame[$k] = $v;
+						}
+						break;
+					default:
+						$frame[$macro[2][$i]] = $args[$i] ?? null;
+				}
 			}
 			$this->context->pushStack($frame);
 			$rendered = $this->renderFromTo($macro[0], $macro[1]);
