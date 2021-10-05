@@ -611,7 +611,7 @@ class DefaultExecutor implements ExecutionContext
 	private function storeVariables(&$arr)
 	{
 		foreach ($arr as &$val) {
-			if ($val[0] !== null && $this->context->hasValue($val[0])) {
+			if ($val !== null && $this->context->hasValue($val[0])) {
 				$val[1] = $this->context->getValue($val[0]);
 			}
 		}
@@ -620,7 +620,7 @@ class DefaultExecutor implements ExecutionContext
 	private function restoreValues(&$arr)
 	{
 		foreach ($arr as $val) {
-			if ($val[0] === null) {
+			if ($val === null || isset($val[0]) || $val[0] === null) {
 				continue;
 			}
 			$this->context->addValue($val[0], $val[1]);
