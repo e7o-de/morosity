@@ -10,6 +10,26 @@ all that fancy caches etc. And, of course, just the fun of it.
 Code quality might improve in future, as well as the feature set,
 but for now it's pretty acceptable.
 
+## Quick start ##
+
+```
+composer require e7o/morosity
+```
+
+For now, you might need an `"minimum-stability": "dev"` in your composer.json.
+
+Simplest usage:
+
+```
+$template = new \e7o\Morosity\Morosity(
+	new \e7o\Morosity\Loader\FileLoader('templates')
+);
+echo $template->render(
+	'hello.htm',
+	['var1' => 'hello world']
+);
+```
+
 ## Status & license ##
 
 The engine is actually working.
