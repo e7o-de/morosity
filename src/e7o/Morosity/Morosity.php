@@ -28,15 +28,15 @@ class Morosity
 		$this->processor->addFunction($name, $function);
 	}
 	
-	public function render(string $file, array $params = [])
+	public function render(string $file, ?array $params = [])
 	{
 		$template = $this->loader->load($file);
-		return $this->renderString($template, $params);
+		return $this->renderString($template, $params ?: []);
 	}
 	
-	public function renderString(string $template, array $params = [])
+	public function renderString(string $template, ?array $params = [])
 	{
-		$this->processor->setValues($params);
+		$this->processor->setValues($params ?: []);
 		return $this->processor->render($template);
 	}
 }
