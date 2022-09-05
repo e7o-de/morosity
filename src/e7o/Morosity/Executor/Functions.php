@@ -38,20 +38,22 @@ class Functions
 	
 	public static function explode(&$value, &$param)
 	{
-		return explode($param[0], $value);
+		return @explode($param[0], $value);
 	}
 	
 	public static function implode(&$value, &$param)
 	{
-		return implode($param[0], $value);
+		return @implode($param[0], $value);
 	}
 	
 	public static function count(&$value, &$param)
 	{
 		if (is_array($value)) {
 			return count($value);
-		} else {
+		} elseif (is_string($value)) {
 			return strlen($value);
+		} else {
+			return $value ? 1 : 0;
 		}
 	}
 	
@@ -59,8 +61,10 @@ class Functions
 	{
 		if (is_array($value)) {
 			return array_reverse($value);
-		} else {
+		} elseif (is_string($value)) {
 			return strrev($value);
+		} else {
+			return '';
 		}
 	}
 	
@@ -297,12 +301,12 @@ class Functions
 	
 	public static function json(&$value, &$param)
 	{
-		return json_encode($value);
+		return @json_encode($value);
 	}
 	
 	public static function unjson(&$value, &$param)
 	{
-		return json_decode($value, true);
+		return @json_decode($value, true);
 	}
 	
 	public static function if(&$value, &$param)
