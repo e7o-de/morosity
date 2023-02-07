@@ -31,12 +31,18 @@ class Morosity
 	public function render(string $file, ?array $params = [])
 	{
 		$template = $this->loader->load($file);
-		return $this->renderString($template, $params ?: []);
+		return $this->renderActually($template, $file, $params);
 	}
 	
 	public function renderString(string $template, ?array $params = [])
 	{
+		return $this->renderActually($template, 'unknown', $params);
+	}
+	
+	private function renderActually($templateSource, $templateName, $params)
+	{
 		$this->processor->setValues($params ?: []);
-		return $this->processor->render($template);
+		return $this->processor->render($templateSource, $templateName);
 	}
 }
+

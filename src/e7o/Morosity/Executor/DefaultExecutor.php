@@ -13,6 +13,8 @@ class DefaultExecutor implements ExecutionContext
 	protected $commandHandler;
 	protected $environment;
 	
+	protected $templateName = 'unknown';
+	
 	// Execution
 	private $parsed;
 	private $currentLoops;
@@ -34,8 +36,10 @@ class DefaultExecutor implements ExecutionContext
 	 * It can be executed just once at a time. Create a new instance of that object
 	 * to render while another rendering is in progress.
 	 */
-	public function render($template)
+	public function render($template, $sourceHint = 'unknown')
 	{
+		$this->templateName = $sourceHint;
+		
 		$this->parsed = Tokenizer::parse($template);
 		
 		$this->jumpBack = [];
@@ -236,7 +240,7 @@ class DefaultExecutor implements ExecutionContext
 							break;
 						}
 					}
-					$result .= $executor->render($template);
+					$result .= $executor->render($template, $tryName);
 					if ($alias) {
 						$this->includedMacros[$alias] = $executor;
 						$executor = null;
@@ -264,7 +268,7 @@ class DefaultExecutor implements ExecutionContext
 						}
 					}
 					if ($end === false) {
-						throw new \Exception('Cannot find end of macro ' . $name);
+						throw new \Exception('Cannot find end of macro "' . $name . '" in ' . $this->templateName);
 					}
 					$this->macros[$name] = [$start + 1, $end - 1, $params];
 					break;
@@ -276,7 +280,7 @@ class DefaultExecutor implements ExecutionContext
 						$file = $this->evaluateExpression($file);
 						$newExecutor = new DefaultExecutor($this->context, $this->environment, $this->commandHandler);
 						// todo: dirty workaround here ;)
-						$newExecutor->render($this->environment->getLoader()->load($file));
+						$newExecutor->render($this->environment->getLoader()->load($file), $file);
 					}
 					$this->includedMacros[$alias] = $newExecutor;
 					break;
@@ -286,7 +290,7 @@ class DefaultExecutor implements ExecutionContext
 							->handleCommand($this->context, $commandPlain, $commandParams)
 						;
 					} else {
-						throw new \Exception('Unknown command: ' . $commandPlain);
+						throw new \Exception('Unknown command "' . $commandPlain . '" in ' . $this->templateName);
 					}
 			}
 		}
@@ -325,7 +329,7 @@ class DefaultExecutor implements ExecutionContext
 				}
 			}
 			if ($ignoreTillNextEndfor >= 1) {
-				throw new \Exception('Cannot find end of loop: ' . $params);
+				throw new \Exception('Cannot find end of loop "' . $params . '" in ' . $this->templateName);
 			}
 		}
 	}
@@ -550,7 +554,7 @@ class DefaultExecutor implements ExecutionContext
 		$this->storeVariables($loopVarNames);
 		if (!is_array($loopArr) && !($loopArr instanceof \Traversable)) {
 			// Unknown variable
-			throw new \Exception('Bad loop initialisator: ' . $command);
+			throw new \Exception('Bad loop initialisator "' . $command . '" in ' . $this->templateName);
 		} else {
 			// Set info
 			reset($loopArr);
@@ -637,3 +641,4 @@ class DefaultExecutor implements ExecutionContext
 		return $this->context->evaluateExpression($expression, $this);
 	}
 }
+
