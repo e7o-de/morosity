@@ -43,7 +43,13 @@ class Functions
 	
 	public static function implode(&$value, &$param)
 	{
-		return @implode($param[0], $value);
+		if (is_array($value)) {
+			return @implode($param[0], $value);
+		} else if (is_array($param)) {
+			return @implode('', $param);
+		} else {
+			return $value;
+		}
 	}
 	
 	public static function count(&$value, &$param)
