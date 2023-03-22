@@ -42,6 +42,7 @@ $templates = [
 
 $dir = dir(__DIR__);
 $m = new Morosity(new TestLoader());
+$m->addFunction('invertstr', function ($c) { return strtolower($c) ^ strtoupper($c) ^ $c; });
 $fails = [];
 echo 'Morosity specification tester' . PHP_EOL;
 $pattern = '/' . ($argv[1] ?? '.') . '/i';

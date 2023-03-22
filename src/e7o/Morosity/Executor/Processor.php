@@ -265,7 +265,13 @@ class Processor implements VariableContext, Environment
 				}
 				// Call
 				$func = strtolower(array_shift($param));
-				$val = Functions::call($func, $val, $param);
+				// TODO: needs the same stuff as a few lines above, so: unify
+				if (!empty($this->functions[$func])) {
+					$f = $this->functions[$func];
+					$val = $f($val);
+				} else {
+					$val = Functions::call($func, $val, $param);
+				}
 			}
 		}
 		
