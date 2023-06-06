@@ -530,7 +530,7 @@ class DefaultExecutor implements ExecutionContext
 				$loopVarNames = [[trim($vars[0]), null], [trim($vars[1]), null]];
 				break;
 			default:
-				throw new Exception('Invalid number of variables in for loop: ' . $parts[0]);
+				throw new \Exception('Invalid number of variables in for loop: ' . $parts[0]);
 		}
 		
 		// Get array to loop over
