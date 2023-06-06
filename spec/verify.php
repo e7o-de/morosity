@@ -62,7 +62,7 @@ while ($group = $dir->read()) {
 				$templates[$name] = trim($all[2]);
 				$data = json_decode($all[3], true);
 				if ($data === null) {
-					$fails[] = [$name, json_last_error_msg()];
+					$fails[] = [$name, '   JSON error: ' . json_last_error_msg()];
 					echo '?';
 				} else {
 					try {
