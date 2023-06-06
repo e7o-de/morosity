@@ -15,9 +15,11 @@ function diff($a, $b)
 	for ($i = 0; $i < count($b); $i++) if (strlen($b[$i]) > $maxl) $maxl = strlen($b[$i]);
 	$maxl = max($maxl, 10);
 	$diff[] =
-		'     | '
+		"  \x00\x1b[4m   | "
 		. str_pad('Expected', $maxl, ' ', STR_PAD_RIGHT)
-		. ' | Actual'
+		. " | "
+		. str_pad('Actual', $maxl, ' ', STR_PAD_RIGHT)
+		. " \x00\x1b[0m"
 	;
 	for ($i = 0; $i < max(count($a), count($b)); $i++) {
 		$ad = $a[$i] ?? '';
