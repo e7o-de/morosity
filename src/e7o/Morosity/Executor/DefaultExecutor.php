@@ -340,7 +340,9 @@ class DefaultExecutor implements ExecutionContext
 		end($this->currentLoops);
 		$loop = &$this->currentLoops[key($this->currentLoops)];
 		// Check if counter is smaller than the maximum loop count
-		if ($loop[ExecutionContext::LOOP_CURRENT_INDEX] < $loop[ExecutionContext::LOOP_COUNT]) {
+		if ($loop === null) {
+			throw new \Exception('Loop syntax error, nesting might be wrong');
+		} else if ($loop[ExecutionContext::LOOP_CURRENT_INDEX] < $loop[ExecutionContext::LOOP_COUNT]) {
 			// Yes: Just increase the counter and go back to start of the loop
 			$loop[ExecutionContext::LOOP_CURRENT_INDEX]++;
 			next($loop[ExecutionContext::LOOP_ARRAY]);
@@ -628,7 +630,7 @@ class DefaultExecutor implements ExecutionContext
 	
 	private function restoreValues(&$arr)
 	{
-		foreach ($arr as $val) {
+		foreach ($arr ?? [] as $val) {
 			if ($val === null || isset($val[0]) || $val[0] === null) {
 				continue;
 			}

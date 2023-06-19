@@ -18,6 +18,11 @@ class Processor implements VariableContext, Environment
 	// Additonal values
 	private $stack = [];
 	
+	private const TYPEHINT_VARIABLE = 0;
+	private const TYPEHINT_CONSTANT = 1;
+	private const TYPEHINT_STRING = 2;
+	private const TYPEHINT_ARRAY = 3;
+	
 	public function __construct()
 	{
 		$this->values = [];
@@ -86,15 +91,22 @@ class Processor implements VariableContext, Environment
 	
 	public function evaluateExpression(string $expression, ExecutionContext $context = null, $alreadyUnescaped = false)
 	{
+		return $this->evaluateExpressionInt($expression, $context, $alreadyUnescaped)[0];
+	}
+	
+	private function evaluateExpressionInt(string $expression, ExecutionContext $context = null, $alreadyUnescaped = false)
+	{
+		$typeHint = static::TYPEHINT_VARIABLE;
+		
 		switch (strtolower($expression)) {
 			case 'false':
-				return false;
+				return [false, static::TYPEHINT_CONSTANT];
 			case 'true':
-				return true;
+				return [true, static::TYPEHINT_CONSTANT];
 			case 'null':
-				return null;
+				return [null, static::TYPEHINT_CONSTANT];
 			case '':
-				return '';
+				return ['', static::TYPEHINT_CONSTANT];
 		}
 		
 		if ($alreadyUnescaped) {
@@ -183,6 +195,7 @@ class Processor implements VariableContext, Environment
 				$expression = ParamParser::split($expression)[0]; // For the escaping stuff
 			}
 			$val = substr($expression, 1, -1);
+			$typeHint = static::TYPEHINT_STRING;
 		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
 			// Function call -- Macro or internal function
 			$pos = strpos($expression, '(');
@@ -205,19 +218,30 @@ class Processor implements VariableContext, Environment
 			} else {
 				throw new \Exception('Unknown macro/function ' . $name . ' called');
 			}
+		} else if ($expression[0] == '[') {
+			$val = $this->evaluateArray($expression, $context);
+			$typeHint = static::TYPEHINT_ARRAY;
 		} else {
-			// Iterate through dots
+			// Iterate through dots - array handling etc.
 			$val = null;
 			$expression = preg_replace_callback(
 				'/\[([a-z0-9()"\'\\\\, ]+)\]/i',
-				function ($match) use ($context) {
-					$v = $this->evaluateExpression($match[1], $context);
-					return '.' . $v;
+				function ($match) use ($context, $expression) {
+					$v = $this->evaluateExpressionInt($match[1], $context);
+					if ($v[1] == static::TYPEHINT_STRING) {
+						// TODO
+						return '.' . $v[0];
+					} else {
+						return '.' . $v[0];
+					}
 				},
 				$expression
 			);
-			foreach (explode('.', $expression) as $expressionSub) {
+			foreach (ParamParser::split($expression, '\.[') as $expressionSub) {
 				$expressionSub = trim($expressionSub);
+				if (strlen($expressionSub) > 0 && $expressionSub[0] == "'") {
+					$expressionSub = substr($expressionSub, 1, -1);
+				}
 				if ($expressionSub === '') {
 					$val = null; // shouldn't happen i guess
 				} else if (is_array($val) && isset($val[$expressionSub])) {
@@ -274,9 +298,8 @@ class Processor implements VariableContext, Environment
 				}
 			}
 		}
-		
 		// Done
-		return $val;
+		return [$val, $typeHint];
 	}
 	
 	private function countAndRemoveDots(string &$string)

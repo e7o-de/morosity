@@ -177,6 +177,28 @@ class Functions
 		return str_replace($param[0], $param[1], $value);
 	}
 	
+	public static function remove(&$value, &$param)
+	{
+		$newVal = $value;
+		foreach ($param as $p) {
+			if (!is_array($p)) {
+				$p = [$p];
+			}
+			foreach ($p as $singlePar) {
+				if (is_array($value)) {
+					foreach ($value as $k => $v) {
+						if ($v === $singlePar) {
+							unset($newVal[$k]);
+						}
+					}
+				} else {
+					$newVal = str_replace($singlePar, '', $newVal);
+				}
+			}
+		}
+		return $newVal;
+	}
+	
 	public static function encode(&$value, &$param)
 	{
 		return @htmlentities($value, \ENT_QUOTES, 'UTF-8');
