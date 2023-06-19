@@ -199,6 +199,20 @@ class Functions
 		return $newVal;
 	}
 	
+	public static function contains(&$value, &$param)
+	{
+		if (is_array($value)) {
+			foreach ($value as $v) {
+				if ($v === $param[0]) {
+					return true;
+				}
+			}
+			return false;
+		} else {
+			return is_array($param) && count($param) > 0 && stripos($value, $param[0]) !== false;
+		}
+	}
+	
 	public static function encode(&$value, &$param)
 	{
 		return @htmlentities($value, \ENT_QUOTES, 'UTF-8');

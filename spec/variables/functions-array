@@ -1,9 +1,13 @@
 ------------------------------------------------------------------------------
-Some more advanced functions related to arrays
+Some more advanced functions related to arrays and strings
 ------------------------------------------------------------------------------
 {{ as|remove("b", "c") }}-{{ a|remove(["b", "c", "d"], "e", "f")|implode("") }}
+{% if a|contains("b") %}yes{% else %}no{% endif %}
+{% if as|contains("c") %}yes{% endif %}{% if as|contains("x") %}no{% endif %}
 ------------------------------------------------------------------------------
 {"a":["a", "b", "c", "d", "e", "f", "g"], "as": "abcde"}
 ------------------------------------------------------------------------------
 ade-ag
+yes
+yesno
 
