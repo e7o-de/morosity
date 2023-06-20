@@ -10,6 +10,7 @@ class Functions
 		'join' => 'implode',
 		'len' => 'count',
 		'length' => 'count',
+		'slice' => 'cut',
 	];
 	
 	public static function call(string &$func, &$value, array &$params)
@@ -125,7 +126,19 @@ class Functions
 	
 	public static function cut(&$value, &$param)
 	{
-		return substr($value, 0, (int)$param[0]);
+		if (is_array($value)) {
+			if (count($param) > 1) {
+				return array_slice($value, (int)$param[0], (int)$param[1]);
+			} else {
+				return array_slice($value, 0, (int)$param[0]);
+			}
+		} else {
+			if (count($param) > 1) {
+				return substr($value, (int)$param[0], (int)$param[1]);
+			} else {
+				return substr($value, 0, (int)$param[0]);
+			}
+		}
 	}
 	
 	public static function substr(&$value, &$param)

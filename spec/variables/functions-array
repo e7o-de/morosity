@@ -4,10 +4,16 @@ Some more advanced functions related to arrays and strings
 {{ as|remove("b", "c") }}-{{ a|remove(["b", "c", "d"], "e", "f")|implode("") }}
 {% if a|contains("b") %}yes{% else %}no{% endif %}
 {% if as|contains("c") %}yes{% endif %}{% if as|contains("x") %}no{% endif %}
+{{ b.sub|cut(2) }}-{{ a|cut(3)|implode(",") }}
 ------------------------------------------------------------------------------
-{"a":["a", "b", "c", "d", "e", "f", "g"], "as": "abcde"}
+{
+	"a": ["a", "b", "c", "d", "e", "f", "g"],
+	"as": "abcde",
+	"b": {"sub": "abc"}
+}
 ------------------------------------------------------------------------------
 ade-ag
 yes
 yesno
+ab-a,b,c
 
