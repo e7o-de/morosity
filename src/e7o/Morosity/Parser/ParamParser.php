@@ -14,7 +14,17 @@ class ParamParser
 	* can be given in $splitInAddition (they need to be regex-safe, so e.g. a "["
 	* should be passed as "\[").
 	*/
-	public static function split(string $str, $splitInAddition = '')
+	public static function split(string $str, $keepSeparators = false, $splitInAddition = [], $preventSplit = [])
+	{
+		return static::splitInternal($str, $keepSeparators, [], $splitInAddition, $preventSplit);
+	}
+	
+	public static function splitOnly(string $str, $tokens = [])
+	{
+		return static::splitInternal($str, false, $tokens);
+	}
+	
+	private static function splitInternal(string $str, $keepSeparators = false, $splitOnly = [], $splitInAddition = [], $preventSplit = [])
 	{
 		$l = strlen($str);
 		$start = 0;
@@ -22,12 +32,45 @@ class ParamParser
 		$charsToRemove = [];
 		$collected = [];
 		$parents = 0;
-		preg_match_all('/["\'\\\\()\[\]|,' . $splitInAddition . ']/', $str, $positions, PREG_OFFSET_CAPTURE);
+		if (empty($splitOnly)) {
+			$defaultSplit = '"\'\\\\()\[\]|,';
+			// TODO: Cache or input from outside as ready-to-use string (via preparation function)
+			foreach ($preventSplit as $token) {
+				$defaultSplit = str_replace(preg_quote($token), '', $defaultSplit);
+			}
+			$altSplits = [];
+			foreach ($splitInAddition as $token) {
+				if (strlen($token) == 1) {
+					$defaultSplit .= preg_quote($token);
+				} else {
+					if (ctype_alnum($token[0])) {
+						$altSplits[] = '[^a-z0-9]' . preg_quote($token);
+					} else {
+						$altSplits[] = preg_quote($token);
+					}
+				}
+			}
+			$regex = '[' . $defaultSplit . ']';
+			if (!empty($altSplits)) {
+				$regex = '(' . $regex . '|' . implode('|', $altSplits) . ')';
+			}
+		} else {
+			$s = [];
+			foreach ($splitOnly as $token) {
+				if (ctype_alnum($token[0])) {
+					$s[] = '[^a-z0-9]' . preg_quote($token);
+				} else {
+					$s[] = preg_quote($token);
+				}
+			}
+			$regex = '(["\'()\\\\]|' . implode('|', $s) . ')';
+		}
+		preg_match_all('/' . $regex . '/', $str, $positions, PREG_OFFSET_CAPTURE);
 		$positions = $positions[0];
 		$l = count($positions);
 		for ($i = 0; $i < $l; $i++) {
 			$pos = $positions[$i][1];
-			$c = $str[$pos];
+			$c = $positions[$i][0];
 			switch ($c) {
 				case '\\':
 					if ($parents == 0) {
@@ -76,11 +119,18 @@ class ParamParser
 							$collected[] = static::removeChars(substr($str, $start, $pos - $start), $charsToRemove);
 						}
 						$charsToRemove = [];
-						$start = $pos + 1;
+						if (!empty($splitOnly)) {
+							$collected[] = trim($c);
+						}
+						$start = $pos + strlen($c);
 					}
 					break;
 			}
+			if ($keepSeparators && empty($splitOnly)) {
+				$collected[] = trim($c);
+			}
 		}
+		
 		$collected[] = static::removeChars(substr($str, $start), $charsToRemove);
 		return $collected;
 	}

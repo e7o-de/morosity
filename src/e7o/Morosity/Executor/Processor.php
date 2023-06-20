@@ -237,7 +237,7 @@ class Processor implements VariableContext, Environment
 				},
 				$expression
 			);
-			foreach (ParamParser::split($expression, '\.[') as $expressionSub) {
+			foreach (ParamParser::split($expression, false, ['.', '[']) as $expressionSub) {
 				$expressionSub = trim($expressionSub);
 				if (strlen($expressionSub) > 0 && $expressionSub[0] == "'") {
 					$expressionSub = substr($expressionSub, 1, -1);

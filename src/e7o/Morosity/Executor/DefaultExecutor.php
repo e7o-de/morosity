@@ -388,12 +388,15 @@ class DefaultExecutor implements ExecutionContext
 		$compare = ['==', '!=', '<=', '>=', '<', '>', 'in', 'notin', 'is', 'has'];
 		$bool = ['and', 'or'];
 		
-		$conditions = ParamParser::split($conditionString, ' ');
+		$conditions = ParamParser::splitOnly($conditionString, array_merge($compare, $bool));
 		
 		// Detect + group by type
 		$l = count($conditions);
 		for ($i = 0; $i < $l; $i++) {
-			if ($conditions[$i][0] == '!') {
+			$conditions[$i] = trim($conditions[$i]);
+			if ($conditions[$i] == '!=') {
+				$not = false;
+			} else if ($conditions[$i][0] == '!') {
 				$not = true;
 				$conditions[$i] = substr($conditions[$i], 1);
 			} else {
