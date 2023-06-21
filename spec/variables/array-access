@@ -2,16 +2,18 @@
 Elements of arrays can be accessed via the dot or, for variable-based indicies,
 the common bracket syntax. Inside [ and ], there's only a very restricted
 set of code possible. Some basic functions do work, but it's neitehr tested
-nor officially supported yet :)
+nor officially supported yet :) Keys are only allowed to be alphanumeric and
+underscores etc., but some stuff like dashes will work as well. Use at your
+own risk.
 ------------------------------------------------------------------------------
-{{ v1.v2.v3.v4 }}
+{{ v1.v2.v-3.v4 }}
 {{ v5[name1][name2].v8 }}
 {{ v5["v6"]["v7"].v8 }}
 {{ v8[add(1, number1)] }}
 {{ dottedarray[v9] }}.{{ dottedarray["a.b.c"] }}
 ------------------------------------------------------------------------------
 {
-    "v1": {"v2": {"v3": {"v4": 5}}},
+    "v1": {"v2": {"v-3": {"v4": 5}}},
     "v5": {"v6": {"v7": {"v8": 8}}},
     "v8": ["a", "b", "c", "d"],
     "v6": "(wrong usage v6)",

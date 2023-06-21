@@ -23,6 +23,7 @@ class DefaultExecutor implements ExecutionContext
 	private $ifHadMatch;
 	private $macros;
 	private $includedMacros;
+	private $switchHadMatch;
 	
 	public function __construct(VariableContext $context, Environment $env, array $commandHandler)
 	{
@@ -45,9 +46,9 @@ class DefaultExecutor implements ExecutionContext
 		$this->jumpBack = [];
 		$this->currentLoops = [];
 		$this->ifHadMatch = [];
-		$this->variables = [];
 		$this->macros = [];
 		$this->includedMacros = [];
+		$this->switchHadMatch = [];
 		
 		return $this->renderFromTo(0, count($this->parsed) - 1);
 	}
