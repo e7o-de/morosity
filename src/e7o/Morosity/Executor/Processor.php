@@ -282,7 +282,12 @@ class Processor implements VariableContext, Environment
 					$f = $this->functions[$func];
 					$val = $f($val);
 				} else {
-					$val = Functions::call($func, $val, $param);
+					try {
+						$val = Functions::call($func, $val, $param);
+					} catch (\TypeError $e) {
+						// TODO: Error message
+						$val = '(invalid type)';
+					}
 				}
 			}
 		}

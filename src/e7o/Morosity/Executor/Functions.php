@@ -305,8 +305,12 @@ class Functions
 				if (empty($value)) {
 					$value = 'Now';
 				}
-				$value = new \DateTime($value);
-				$value = $value->format($param[0]);
+				if (is_string($value)) {
+					$value = new \DateTime($value);
+					$value = $value->format($param[0]);
+				} else {
+					$value = '(invalid type given)';
+				}
 			} catch (\Exception $e) {
 				$value = '(invalid date given)';
 			}
