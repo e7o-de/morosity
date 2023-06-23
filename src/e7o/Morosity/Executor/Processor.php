@@ -4,6 +4,7 @@ namespace e7o\Morosity\Executor;
 
 use \e7o\Morosity\Loader\Loader;
 use \e7o\Morosity\Parser\ParamParser;
+use \e7o\Morosity\Parser\Strings;
 
 class Processor implements VariableContext, Environment
 {
@@ -89,49 +90,41 @@ class Processor implements VariableContext, Environment
 		return $executor->render($template);
 	}
 	
-	public function evaluateExpression(string $expression, ExecutionContext $context = null, $alreadyUnescaped = false)
+	public function evaluateExpression(string $expression, ExecutionContext $context = null)
 	{
-		return $this->evaluateExpressionInt($expression, $context, $alreadyUnescaped)[0];
+		return $this->evaluateExpressionInt($expression, $context)[0];
 	}
 	
-	private function evaluateExpressionInt(string $expression, ExecutionContext $context = null, $alreadyUnescaped = false)
+	private function evaluateExpressionInt(string $expression, ExecutionContext $context = null)
 	{
 		$typeHint = static::TYPEHINT_VARIABLE;
 		
-		switch (strtolower($expression)) {
-			case 'false':
-				return [false, static::TYPEHINT_CONSTANT];
-			case 'true':
-				return [true, static::TYPEHINT_CONSTANT];
-			case 'null':
-				return [null, static::TYPEHINT_CONSTANT];
-			case '':
-				return ['', static::TYPEHINT_CONSTANT];
-		}
-		
-		if ($alreadyUnescaped) {
-			$pipeModifier = null;
-		} else {
-			$parts = ParamParser::split($expression);
-			if ($expression[0] == '[') {
-				$expression = $this->evaluateArray($parts[0], $context);
-				array_shift($parts);
-				$pipeModifier = $parts;
-			} else if (count($parts) > 1) {
-				$expression = array_shift($parts);
-				$pipeModifier = $parts;
-			} else {
-				$pipeModifier = null;
-			}
-		}
+		$parts = ParamParser::splitOnly($expression, false, ['|']);
+		$expression = array_shift($parts);
+		$pipeModifier = $parts;
 		
 		// Check some special syntax
-		if (is_array($expression)) {
+		if (strtolower($expression) == 'false') {
+			$val = false;
+			$typeHint = static::TYPEHINT_CONSTANT;
+		} else if (strtolower($expression) == 'true') {
+			$val = true;
+			$typeHint = static::TYPEHINT_CONSTANT;
+		} else if (strtolower($expression) == 'null') {
+			$val = null;
+			$typeHint = static::TYPEHINT_CONSTANT;
+		} else if (strtolower($expression) == '') {
+			$val = '';
+			$typeHint = static::TYPEHINT_STRING;
+		} else if (is_array($expression)) {
 			$val = $expression;
-		} else if (is_numeric($expression)) {
-			$val = (int)$expression;
+			$typeHint = static::TYPEHINT_ARRAY;
 		} else if (is_float($expression)) {
 			$val = (float)$expression;
+			$typeHint = static::TYPEHINT_CONSTANT;
+		} else if (is_numeric($expression)) {
+			$val = (int)$expression;
+			$typeHint = static::TYPEHINT_CONSTANT;
 		} else if (substr($expression, 0, 5) == 'loop.') {
 			// Loop variable, first check context
 			if ($context === null) {
@@ -186,15 +179,15 @@ class Processor implements VariableContext, Environment
 					}
 					break;
 			}
+			$typeHint = static::TYPEHINT_CONSTANT;
 		} else if (preg_match('/^([\'"]?)[0-9a-z]+\1\.\.([\'"]?)[0-9a-z]+\2$/i', $expression)) {
 			// Range: 2..5 or sth like this
 			$range = explode('..', $expression);
 			$val = range($this->evaluateExpression($range[0]), $this->evaluateExpression($range[1]));
+			$typeHint = static::TYPEHINT_ARRAY;
 		} else if ($expression[0] == "'" || $expression[0] == '"') {
-			if (!$alreadyUnescaped) {
-				$expression = ParamParser::split($expression)[0]; // For the escaping stuff
-			}
 			$val = substr($expression, 1, -1);
+			$val = Strings::unescape($val);
 			$typeHint = static::TYPEHINT_STRING;
 		} else if (!empty($context) && (preg_match('/^[a-z0-9_.]+ *\(/i', $expression))) {
 			// Function call -- Macro or internal function
@@ -203,7 +196,7 @@ class Processor implements VariableContext, Environment
 			$params = substr($expression, $pos + 1);
 			$params = substr($params, 0, strrpos($params, ')'));
 			$args = [];
-			$params = ParamParser::split($params);
+			$params = ParamParser::splitOnly($params, false, [',']);
 			foreach ($params as $param) {
 				$args[] = $this->evaluateExpression($param, $context);
 			}
@@ -218,52 +211,47 @@ class Processor implements VariableContext, Environment
 			} else {
 				throw new \Exception('Unknown macro/function ' . $name . ' called');
 			}
+			$typeHint = static::TYPEHINT_STRING;
 		} else if ($expression[0] == '[') {
 			$val = $this->evaluateArray($expression, $context);
 			$typeHint = static::TYPEHINT_ARRAY;
 		} else {
-			// Iterate through dots - array handling etc.
-			$val = null;
-			$expression = preg_replace_callback(
-				'/\[([a-z0-9()"\'\\\\, ]+)\]/i',
-				function ($match) use ($context, $expression) {
-					$v = $this->evaluateExpressionInt($match[1], $context);
-					if ($v[1] == static::TYPEHINT_STRING) {
-						// TODO
-						return '.' . $v[0];
-					} else {
-						return '.' . $v[0];
-					}
-				},
-				$expression
-			);
-			foreach (ParamParser::split($expression, false, ['.', '[']) as $expressionSub) {
-				$expressionSub = trim($expressionSub);
-				if (strlen($expressionSub) > 0 && $expressionSub[0] == "'") {
-					$expressionSub = substr($expressionSub, 1, -1);
+			// Array access handling etc.
+			$expressionSplit = ParamParser::splitOnly($expression, false, ['.', '[', ']', '(', ')', ',']);
+			// First part must be a variable name, as it didn't match any of the given
+			// options like string, number, range ...
+			$found = false;
+			for ($j = count($this->stack) - 1; $j >= 0; $j--) {
+				if (isset($this->stack[$j][$expressionSplit[0]])) {
+					$val = $this->stack[$j][$expressionSplit[0]];
+					$found = true;
+					break;
 				}
-				if ($expressionSub === '') {
-					$val = null; // shouldn't happen i guess
-				} else if (is_array($val) && isset($val[$expressionSub])) {
+			}
+			if ($found == false) {
+				// TODO: Error/warning when unknown
+				$val = $this->values[$expressionSplit[0]] ?? null;
+			}
+			
+			for ($i = 1; $i < count($expressionSplit); $i++) {
+				$expressionSub = $expressionSplit[$i];
+				if ($expressionSub[0] == '[' && $expressionSub[-1] == ']') {
+					$expressionSub = substr($expressionSub, 1, -1);
+					// Only on [...] syntax it can be a real expression; otherwise
+					// it's a constant index name
+					$expressionSub = $this->evaluateExpressionInt($expressionSub, $context)[0];
+				}
+				if (!is_string($expressionSub) && !is_int($expressionSub)) {
+					// TODO: error
+					$val = 'Invalid array key type: ' . gettype($expressionSub);
+				}
+				
+				if (isset($val[$expressionSub])) {
 					$val = $val[$expressionSub];
 				} else {
-					$found = false;
-					for ($i = count($this->stack) - 1; $i >= 0; $i--) {
-						if (isset($this->stack[$i][$expressionSub])) {
-							$val = $this->stack[$i][$expressionSub];
-							$found = true;
-							break;
-						}
-					}
-					if ($found === false) {
-						if (isset($this->values[$expressionSub])) {
-							// User variable, exists
-							$val = $this->values[$expressionSub];
-						} else {
-							// Unknown variable
-							$val = null;
-						}
-					}
+					// TODO: If there's stuff left ($i < count-1), we should check
+					// what to do (show an error?)
+					break;
 				}
 			}
 		}
@@ -285,7 +273,7 @@ class Processor implements VariableContext, Environment
 				}
 				// Preprocess params
 				for ($i = 1; $i < count($param); $i++) {
-					$param[$i] = $this->evaluateExpression($param[$i], $context, true);
+					$param[$i] = $this->evaluateExpression($param[$i], $context);
 				}
 				// Call
 				$func = strtolower(array_shift($param));
@@ -318,7 +306,7 @@ class Processor implements VariableContext, Environment
 	private function evaluateArray($string, $context)
 	{
 		$string = substr($string, 1, -1);
-		$sub = ParamParser::split($string);
+		$sub = ParamParser::splitOnly($string, false, [',', '[', ']']);
 		$val = [];
 		foreach ($sub as $s) {
 			$s = trim($s);

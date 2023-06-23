@@ -236,7 +236,7 @@ class DefaultExecutor implements ExecutionContext
 					}
 					$template = '';
 					foreach ($names as $tryName) {
-						$template = $this->environment->getLoader()->load($tryName);
+						$template = $this->environment->getLoader()->load($tryName ?? '');
 						if (!empty($template)) {
 							break;
 						}
@@ -387,9 +387,9 @@ class DefaultExecutor implements ExecutionContext
 		}
 		
 		$compare = ['==', '!=', '<=', '>=', '<', '>', 'in', 'notin', 'is', 'has'];
-		$bool = ['and', 'or'];
+		$bool = ['and', 'or', '&&', '||'];
 		
-		$conditions = ParamParser::splitOnly($conditionString, array_merge($compare, $bool));
+		$conditions = ParamParser::splitOnly($conditionString, true, array_merge($compare, $bool));
 		
 		// Detect + group by type
 		$l = count($conditions);
@@ -450,9 +450,11 @@ class DefaultExecutor implements ExecutionContext
 					$v2 = $conditions[$i + 1][1];
 					switch ($operator) {
 						case 'and':
+						case '&&':
 							$r = (bool)$v1 && (bool)$v2;
 							break;
 						case 'or':
+						case '||':
 							$r = (bool)$v1 || (bool)$v2;
 							break;
 					}

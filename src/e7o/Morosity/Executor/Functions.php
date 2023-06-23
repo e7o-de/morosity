@@ -106,7 +106,12 @@ class Functions
 	
 	public static function hash(&$value, &$param)
 	{
-		return hash($param[0] ?? 'md5', $value);
+		try {
+			return hash($param[0] ?? 'md5', $value);
+		} catch (\ValueError $e) {
+			// TODO: Real error
+			return '(invalid hashing algorithm ' . $param[0] . ')';
+		}
 	}
 	
 	public static function shuffle(&$value, &$param)

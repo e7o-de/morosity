@@ -4,40 +4,32 @@ namespace e7o\Morosity\Parser;
 
 class ParamParser
 {
-	private static $simpleEscapers = [
-		't' => "\t", 'n' => "\n", 'r' => "\r", 'a' => "\a",
-		'b' => "\b", 'f' => "\f", 'v' => "\v", "\n" => null, "\r" => null,
-	];
+	private const TYPE_SEPARATOR = 1;
+	private const TYPE_BETWEEN = 2;
 	
 	/**
 	* Splits a text into tokens, separated by "|" and ",". Additional characters
-	* can be given in $splitInAddition (they need to be regex-safe, so e.g. a "["
-	* should be passed as "\[").
+	* can be given in $splitInAddition.
 	*/
 	public static function split(string $str, $keepSeparators = false, $splitInAddition = [], $preventSplit = [])
 	{
 		return static::splitInternal($str, $keepSeparators, [], $splitInAddition, $preventSplit);
 	}
 	
-	public static function splitOnly(string $str, $tokens = [])
+	public static function splitOnly(string $str, $keepSeparators = false, $tokens = [])
 	{
-		return static::splitInternal($str, false, $tokens);
+		return static::splitInternal($str, $keepSeparators, $tokens);
 	}
 	
 	private static function splitInternal(string $str, $keepSeparators = false, $splitOnly = [], $splitInAddition = [], $preventSplit = [])
 	{
-		$l = strlen($str);
-		$start = 0;
-		$quotesOpen = null;
-		$charsToRemove = [];
-		$collected = [];
-		$parents = 0;
 		if (empty($splitOnly)) {
-			$defaultSplit = '"\'\\\\()\[\]|,';
+			$defaultSplit = '"\'\\()[]|,';
 			// TODO: Cache or input from outside as ready-to-use string (via preparation function)
 			foreach ($preventSplit as $token) {
-				$defaultSplit = str_replace(preg_quote($token), '', $defaultSplit);
+				$defaultSplit = str_replace($token, '', $defaultSplit);
 			}
+			$defaultSplit = preg_quote($defaultSplit);
 			$altSplits = [];
 			foreach ($splitInAddition as $token) {
 				if (strlen($token) == 1) {
@@ -63,33 +55,69 @@ class ParamParser
 					$s[] = preg_quote($token);
 				}
 			}
-			$regex = '(["\'()\\\\]|' . implode('|', $s) . ')';
+			$regex = '(["\'()\\\\,\[\]]' . (count($s) > 0 ? '|' . implode('|', $s) : '') . ')';
 		}
-		preg_match_all('/' . $regex . '/', $str, $positions, PREG_OFFSET_CAPTURE);
+		
+		$collected = [];
+		static::splitGoThrough(
+			$str,
+			$regex,
+			function ($type, $part) use (&$collected, $keepSeparators, $splitOnly) {
+				if (!$keepSeparators && $type == static::TYPE_SEPARATOR) {
+					return;
+				}
+				if ($type == static::TYPE_SEPARATOR && !in_array($part, $splitOnly)) {
+					return;
+				}
+				if (strlen($part) > 0) {
+					if ($part[0] == '(' && $part[-1] == ')') {
+						$part = substr($part, 1, -1);
+					}
+					$collected[] = $part;
+				}
+			},
+			$splitOnly
+		);
+		
+		return $collected;
+	}
+	
+	private static function splitGoThrough(&$str, $regex, $onMatch, $splitChars)
+	{
+		preg_match_all('/' . $regex . '/m', $str, $positions, PREG_OFFSET_CAPTURE);
 		$positions = $positions[0];
+		
+		$start = 0;
+		$charsToRemove = [];
+		
+		$functionName = false;
+		$quotesOpen = null;
+		$parents = 0;
+		$array = 0;
+		
 		$l = count($positions);
 		for ($i = 0; $i < $l; $i++) {
 			$pos = $positions[$i][1];
-			$c = $positions[$i][0];
+			$c = trim($positions[$i][0]);
+			$opened = false;
+			$closed = false;
 			switch ($c) {
 				case '\\':
-					if ($parents == 0) {
-						$charsToRemove[] = $pos - $start;
-						$cn = $str[$pos + 1];
-						if (array_key_exists($cn, static::$simpleEscapers)) {
-							if (static::$simpleEscapers[$cn] === null) {
-								$charsToRemove[] = $pos - $start + 1;
-							} else {
-								$str[$pos + 1] = static::$simpleEscapers[$cn];
+					if ($parents == 0 && $array == 0) {
+						$cn = $str[$pos + 1] ?? 'x';
+						$cn2 = $str[$pos + 2] ?? 'y';
+						if ($cn == "\r" || $cn == "\n") {
+							$charsToRemove[] = $pos - $start;
+							$charsToRemove[] = $pos - $start + 1;
+							if (($cn2 == "\r" || $cn2 == "\n") && $cn != $cn2) {
+								$charsToRemove[] = $pos - $start + 2;
 							}
-						// todo: check for \u0000 or \x0000 and so
-						} // keep everything else as it is
+						}
+						if ($positions[$i + 1][1] == $pos + 1) {
+							$i++;
+						}
 					}
-					if ($positions[$i + 1][1] == $pos + 1) {
-						// Skipping next one if it's the thing we've escaped
-						$i++;
-					}
-					break;
+					continue 2;
 				case '"':
 				case "'":
 					if ($c === $quotesOpen) {
@@ -99,40 +127,80 @@ class ParamParser
 					}
 					break;
 				case '(':
-				case '[':
-					// No differentiation between types - not ideal, but easy and
-					// with correct syntax usage by the user, it works as expected.
-					if ($quotesOpen === null) {
+					if ($quotesOpen === null && $array == 0) {
 						$parents++;
+						if ($parents == 1) {
+							$opened = true;
+						}
+					}
+					break;
+				case '[':
+					if ($quotesOpen === null && $parents == 0) {
+						$array++;
+						if ($array == 1) {
+							$opened = true;
+						}
 					}
 					break;
 				case ')':
-				case ']':
-					if ($quotesOpen === null) {
+					if ($quotesOpen === null && $array == 0) {
 						$parents--;
+						if ($parents == 0) {
+							$closed = true;
+						}
 					}
 					break;
-				// All others, like "|" and "," and additionally specified ones
-				default:
+				case ']':
 					if ($quotesOpen === null && $parents == 0) {
-						if ($pos - $start > 0) {
-							$collected[] = static::removeChars(substr($str, $start, $pos - $start), $charsToRemove);
+						$array--;
+						if ($array == 0) {
+							$closed = true;
 						}
-						$charsToRemove = [];
-						if (!empty($splitOnly)) {
-							$collected[] = trim($c);
-						}
-						$start = $pos + strlen($c);
 					}
 					break;
 			}
-			if ($keepSeparators && empty($splitOnly)) {
-				$collected[] = trim($c);
+			
+			if (!empty($splitChars) && !in_array($c, $splitChars)) {
+				// Don't split, as it's a non-split character
+			} else if ($opened || $closed) {
+				if ($opened == true && $c == '(' && ctype_alnum(substr($str, $start, $pos - $start))) {
+					// Function name, don't separate this
+					$functionName = true;
+				} else {
+					if ($pos - $start > 0) {
+						$offset = $closed ? 1 : 0;
+						$onMatch(
+							static::TYPE_BETWEEN,
+							static::removeChars(
+								substr(
+									$str,
+									$start - ($functionName ? 0 : $offset),
+									$pos - $start + $offset * ($functionName ? 1 : 2)
+								),
+								$charsToRemove
+							)
+						);
+						$functionName = false;
+					}
+					$start = $pos + strlen($positions[$i][0]);
+				}
+			} else if ($quotesOpen === null && $parents == 0 && $array == 0) {
+				if ($pos - $start > 0) {
+					$offset = ($c == '"' || $c == "'") ? 1 : 0;
+					$onMatch(
+						static::TYPE_BETWEEN,
+						static::removeChars(substr($str, $start, $pos - $start + $offset), $charsToRemove)
+					);
+				}
+				if ($offset == 0) {
+					$onMatch(static::TYPE_SEPARATOR, $c);
+				}
+				$charsToRemove = [];
+				$start = $pos + strlen($positions[$i][0]);
 			}
 		}
 		
-		$collected[] = static::removeChars(substr($str, $start), $charsToRemove);
-		return $collected;
+		$onMatch(static::TYPE_BETWEEN, static::removeChars(substr($str, $start), $charsToRemove));
 	}
 	
 	private static function removeChars(string $str, array $chars)
