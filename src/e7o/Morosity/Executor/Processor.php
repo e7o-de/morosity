@@ -251,6 +251,7 @@ class Processor implements VariableContext, Environment
 				} else {
 					// TODO: If there's stuff left ($i < count-1), we should check
 					// what to do (show an error?)
+					$val = '';
 					break;
 				}
 			}
