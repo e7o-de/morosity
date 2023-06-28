@@ -9,6 +9,7 @@ class Morosity
 {
 	private $processor;
 	private $loader;
+	private $postProcessors = [];
 	
 	public function __construct(Loader $loader)
 	{
@@ -28,6 +29,14 @@ class Morosity
 		$this->processor->addFunction($name, $function);
 	}
 	
+	public function addPostProcessor($onToken, \Closure $function)
+	{
+		if (!isset($this->postProcessors[$onToken])) {
+			$this->postProcessors[$onToken] = [];
+		}
+		$this->postProcessors[$onToken][] = $function;
+	}
+	
 	public function render(string $file, ?array $params = [])
 	{
 		$template = $this->loader->load($file);
@@ -42,6 +51,7 @@ class Morosity
 	private function renderActually($templateSource, $templateName, $params)
 	{
 		$this->processor->setValues($params ?: []);
+		$this->processor->setPostProcessors($this->postProcessors);
 		return $this->processor->render($templateSource, $templateName);
 	}
 }

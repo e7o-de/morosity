@@ -13,6 +13,7 @@ class Processor implements VariableContext, Environment
 	
 	// Extensions
 	private $commandHandler = [];
+	private $postProcessors = [];
 	private $loader;
 	private $functions = [];
 	
@@ -42,6 +43,11 @@ class Processor implements VariableContext, Environment
 	public function setCommandHandler(string $forType, Handler $handler)
 	{
 		$this->commandHandler[$forType] = $handler;
+	}
+	
+	public function setPostProcessors($processors)
+	{
+		$this->postProcessors = $processors;
 	}
 	
 	public function addFunction($name, \Closure $function = null)
@@ -87,6 +93,7 @@ class Processor implements VariableContext, Environment
 	public function render(string $template)
 	{
 		$executor = new DefaultExecutor($this, $this, $this->commandHandler);
+		$executor->setPostProcessors($this->postProcessors);
 		return $executor->render($template);
 	}
 	

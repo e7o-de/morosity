@@ -12,14 +12,13 @@ class DefaultExecutor implements ExecutionContext
 	protected $context;
 	protected $commandHandler;
 	protected $environment;
+	protected $postProcessors = [];
 	
 	protected $templateName = 'unknown';
 	
 	// Execution
 	private $parsed;
 	private $currentLoops;
-	// Array for remembering line numbers to which line we have to jump back
-	private $jumpBack;
 	private $ifHadMatch;
 	private $macros;
 	private $includedMacros;
@@ -30,6 +29,11 @@ class DefaultExecutor implements ExecutionContext
 		$this->context = $context;
 		$this->environment = $env;
 		$this->commandHandler = $commandHandler;
+	}
+	
+	public function setPostProcessors($processors)
+	{
+		$this->postProcessors = $processors;
 	}
 	
 	/**
@@ -43,7 +47,6 @@ class DefaultExecutor implements ExecutionContext
 		
 		$this->parsed = Tokenizer::parse($template);
 		
-		$this->jumpBack = [];
 		$this->currentLoops = [];
 		$this->ifHadMatch = [];
 		$this->macros = [];
@@ -90,16 +93,23 @@ class DefaultExecutor implements ExecutionContext
 				case Tokens::VARIABLE:
 					$value = $this->evaluateExpression($commandParams);
 					if (empty($value)) {
-						// $result .= '';
+						$value = '';
 					} else if (is_array($value)) {
 						// TODO: throw exception due to datatype error?
-						$result .= '[' . @implode(', ', $value) . ']';
+						$value = '[' . @implode(', ', $value) . ']';
 					} else {
-						$result .= $value;
+						// Keep it as it is
 					}
+					foreach ($this->postProcessors[Tokens::VARIABLE] ?? [] as $processor) {
+						$value = $processor($value, ['pos' => $position, 'cmd' => $commandParams]);
+					}
+					$result .= $value;
 					break;
 				case Tokens::PLAIN_TEXT:
 					// No special code, simply add it
+					foreach ($this->postProcessors[Tokens::PLAIN_TEXT] ?? [] as $processor) {
+						$value = $processor($commandParams, ['pos' => $position, 'cmd' => null]);
+					}
 					$result .= $commandParams;
 					break;
 				case Tokens::COMMENT:
