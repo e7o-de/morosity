@@ -57,27 +57,51 @@ class Processor implements VariableContext, Environment
 	
 	public function addValue(string $name, $value)
 	{
-		$this->values[$name] = $value;
+		if (count($this->stack) > 0) {
+			$this->stack[count($this->stack) - 1][$name] = $value;
+		} else {
+			$this->values[$name] = $value;
+		}
 	}
 	
 	public function getValue(string $name)
 	{
-		return $this->values[$name];
+		for ($i = count($this->stack) - 1; $i >= 0; $i--) {
+			if (isset($this->stack[$i][$name])) {
+				return $this->stack[$i][$name];
+			}
+		}
+		// TODO: Error/warning when unknown
+		return $this->values[$name] ?? null;
 	}
 	
 	public function hasValue(string $name)
 	{
+		for ($i = count($this->stack) - 1; $i >= 0; $i--) {
+			if (isset($this->stack[$i][$name])) {
+				return true;
+			}
+		}
+		// TODO: Error/warning when unknown
 		return isset($this->values[$name]);
 	}
 	
 	public function addValues(array $values)
 	{
-		$this->values += $values;
+		if (count($this->stack) > 0) {
+			$this->stack[count($this->stack) - 1] += $values;
+		} else {
+			$this->values += $values;
+		}
 	}
 	
 	public function setValues(array $values)
 	{
-		$this->values = $values;
+		if (count($this->stack) > 0) {
+			$this->stack[count($this->stack) - 1] = $values;
+		} else {
+			$this->values = $values;
+		}
 	}
 	
 	public function pushStack(array $data)
@@ -227,18 +251,7 @@ class Processor implements VariableContext, Environment
 			$expressionSplit = ParamParser::splitOnly($expression, false, ['.', '[', ']', '(', ')', ',']);
 			// First part must be a variable name, as it didn't match any of the given
 			// options like string, number, range ...
-			$found = false;
-			for ($j = count($this->stack) - 1; $j >= 0; $j--) {
-				if (isset($this->stack[$j][$expressionSplit[0]])) {
-					$val = $this->stack[$j][$expressionSplit[0]];
-					$found = true;
-					break;
-				}
-			}
-			if ($found == false) {
-				// TODO: Error/warning when unknown
-				$val = $this->values[$expressionSplit[0]] ?? null;
-			}
+			$val = $this->getValue($expressionSplit[0]);
 			
 			for ($i = 1; $i < count($expressionSplit); $i++) {
 				$expressionSub = $expressionSplit[$i];
@@ -332,3 +345,4 @@ class Processor implements VariableContext, Environment
 		return $val;
 	}
 }
+

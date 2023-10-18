@@ -375,6 +375,7 @@ class DefaultExecutor implements ExecutionContext
 			$this->restoreValues($this->currentLoops[key($this->currentLoops)][ExecutionContext::LOOP_VARS]);
 			// ... and remove from stack
 			unset($this->currentLoops[key($this->currentLoops)]);
+			$this->context->popStack();
 		}
 	}
 	
@@ -577,6 +578,7 @@ class DefaultExecutor implements ExecutionContext
 			throw new \Exception('Bad loop initialisator "' . $command . '" in ' . $this->templateName);
 		} else {
 			// Set info
+			$this->context->pushStack([]);
 			reset($loopArr);
 			$loopInfo = [
 				self::LOOP_CURRENT_INDEX => 0,

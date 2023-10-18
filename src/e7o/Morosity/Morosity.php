@@ -55,4 +55,3 @@ class Morosity
 		return $this->processor->render($templateSource, $templateName);
 	}
 }
-
