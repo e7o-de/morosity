@@ -92,7 +92,7 @@ class DefaultExecutor implements ExecutionContext
 			switch ($commandType) {
 				case Tokens::VARIABLE:
 					$value = $this->evaluateExpression($commandParams);
-					if (empty($value)) {
+					if ($value === false || $value === null || $value === '') {
 						$value = '';
 					} else if (is_array($value)) {
 						// TODO: throw exception due to datatype error?
