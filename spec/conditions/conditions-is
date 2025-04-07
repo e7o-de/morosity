@@ -2,7 +2,8 @@
 is operator checks fancy stuff, the part after is a keyword as well.
 ------------------------------------------------------------------------------
 {% if v1 is empty %}y{% else %}n{% endif %}
-{% if v1 is notempty %}y{% else %}n{% endif %}
+{% if v1 is not empty %}y{% else %}n{% endif %}
+{% if v2 is not empty %}y{% else %}n{% endif %}
 {% if v2 is empty %}y{% else %}n{% endif %}
 {% if v4 is odd %}y{% else %}n{% endif %}
 {% if v4 is even %}y{% else %}n{% endif %}
@@ -13,6 +14,7 @@ is operator checks fancy stuff, the part after is a keyword as well.
 ------------------------------------------------------------------------------
 y
 n
+y
 n
 y
 n
