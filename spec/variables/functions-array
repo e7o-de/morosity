@@ -6,6 +6,7 @@ Some more advanced functions related to arrays and strings
 {% if as|contains("c") %}yes{% endif %}{% if !as|contains("x") %}no{% endif %}
 {{ b.sub|cut(2) }}-{{ a|cut(3)|implode(",") }}
 {% if as|cut(1) == "a" %}yes{% else %}no{% endif %}
+{{ b[["s", "u", "b"]|join] }}
 ------------------------------------------------------------------------------
 {
 	"a": ["a", "b", "c", "d", "e", "f", "g"],
@@ -18,4 +19,5 @@ yes
 yesno
 ab-a,b,c
 yes
+abc
 
