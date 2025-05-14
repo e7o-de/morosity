@@ -10,14 +10,14 @@ interface VariableContext
 	 */
 	public function evaluateExpression(
 		string $expression,
-		ExecutionContext $context = null
+		?ExecutionContext $context = null
 	);
 	
 	/**
 	 * Writes a variable value into store. Existing value with same name will
 	 * be overwritten.
 	 */
-	public function addValue(string $name, $value);
+	public function addValue(string $name, $value, $canBubble = false);
 	
 	/**
 	 * Get a variable value without any modification by filters etc.

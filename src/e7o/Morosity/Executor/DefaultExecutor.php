@@ -235,7 +235,7 @@ class DefaultExecutor implements ExecutionContext
 				case Tokens::VAR_SET:
 					// Define a variable/array
 					$parts = explode('=', $commandParams, 2);
-					$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])));
+					$this->context->addValue(trim($parts[0]), $this->evaluateExpression(trim($parts[1])), true);
 					break;
 				case Tokens::TEMPLATE_INCLUDE:
 					list($commandParams, $alias) = $this->splitAs($commandParams);

@@ -8,9 +8,6 @@ use \e7o\Morosity\Parser\Strings;
 
 class Processor implements VariableContext, Environment
 {
-	// Preparation
-	private $values;
-	
 	// Extensions
 	private $commandHandler = [];
 	private $postProcessors = [];
@@ -18,7 +15,7 @@ class Processor implements VariableContext, Environment
 	private $functions = [];
 	
 	// Additonal values
-	private $stack = [];
+	private $stack = [[]];
 	
 	private const TYPEHINT_VARIABLE = 0;
 	private const TYPEHINT_CONSTANT = 1;
@@ -27,7 +24,6 @@ class Processor implements VariableContext, Environment
 	
 	public function __construct()
 	{
-		$this->values = [];
 	}
 	
 	public function setLoader(Loader $loader)
@@ -55,13 +51,24 @@ class Processor implements VariableContext, Environment
 		$this->functions[$name] = $function;
 	}
 	
-	public function addValue(string $name, $value)
+	public function addValue(string $name, $value, $canBubble = false)
 	{
-		if (count($this->stack) > 0) {
-			$this->stack[count($this->stack) - 1][$name] = $value;
+		if ($canBubble) {
+			$stackPos = $this->findContextForIdentifier($name);
 		} else {
-			$this->values[$name] = $value;
+			$stackPos = count($this->stack) - 1;
 		}
+		$this->stack[$stackPos][$name] = $value;
+	}
+	
+	private function findContextForIdentifier($name)
+	{
+		for ($i = count($this->stack) - 1; $i >= 0; $i--) {
+			if (isset($this->stack[$i][$name])) {
+				return $i;
+			}
+		}
+		return count($this->stack) - 1;
 	}
 	
 	public function getValue(string $name)
@@ -72,7 +79,7 @@ class Processor implements VariableContext, Environment
 			}
 		}
 		// TODO: Error/warning when unknown
-		return $this->values[$name] ?? null;
+		return null;
 	}
 	
 	public function hasValue(string $name)
@@ -83,25 +90,19 @@ class Processor implements VariableContext, Environment
 			}
 		}
 		// TODO: Error/warning when unknown
-		return isset($this->values[$name]);
+		return false;
 	}
 	
-	public function addValues(array $values)
+	public function addValues(array $values, $canBubble = false)
 	{
-		if (count($this->stack) > 0) {
-			$this->stack[count($this->stack) - 1] += $values;
-		} else {
-			$this->values += $values;
+		foreach ($values as $key => $value) {
+			$this->addValue($key, $value);
 		}
 	}
 	
 	public function setValues(array $values)
 	{
-		if (count($this->stack) > 0) {
-			$this->stack[count($this->stack) - 1] = $values;
-		} else {
-			$this->values = $values;
-		}
+		$this->stack[count($this->stack) - 1] = $values;
 	}
 	
 	public function pushStack(array $data)
