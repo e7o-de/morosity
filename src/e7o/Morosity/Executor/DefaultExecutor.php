@@ -484,19 +484,25 @@ class DefaultExecutor implements ExecutionContext
 	
 	private function compare($op, $v1, $v2)
 	{
-		switch (trim($op)) {
+		$op = trim($op);
+		$not = false;
+		if (substr($op, 0, 4) == 'not ') {
+			$not = true;
+			$op = trim(substr($op, 4));
+		}
+		switch ($op) {
 			case 'is':
 				switch ($v2) {
 					case 'empty':
-						return empty($v1);
-					case 'not empty':
-						return !empty($v1);
+						return empty($v1) ^ $not;
 					case 'odd':
-						return ($v1 % 2 == 1);
+						return ($v1 % 2 == 1) ^ $not;
 					case 'even':
-						return ($v1 % 2 == 0);
+						return ($v1 % 2 == 0) ^ $not;
 					case 'numeric':
-						return (is_numeric($v1));
+						return is_numeric($v1) ^ $not;
+					case 'array':
+						return is_array($v1) ^ $not;
 					default:
 						// todo, unknown comparision
 						return false;
