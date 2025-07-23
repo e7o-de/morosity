@@ -4,9 +4,19 @@ Variables can be set and read again.
 {% if a > 5 %}{% set bla="yeah" %}{% else %}{% set bla="ooohhh" %}{% endif %}{{ bla }}
 {% set blubb=false %}{% if a > 2 %}{% set blubb=true %}{% endif %}{% if blubb %}yeah{% endif %}
 {% set repeated=0 %}{% set repeated=1 %}{% set repeated=2 %}{{ repeated }}
+{% set b[]=2 %}{{ b }}
+{% set b[0]=3 %}{{ b }}
+{% set b.0=4 %}{{ b }}
+{% set c[]=5 %}{{ c }}
+{% set d[]=[6] %}{{ d[0] }}
 ------------------------------------------------------------------------------
-{"a": 4}
+{"a": 4, "b": [1]}
 ------------------------------------------------------------------------------
 ooohhh
 yeah
 2
+[1, 2]
+[3, 2]
+[4, 2]
+[5]
+[6]

@@ -53,12 +53,40 @@ class Processor implements VariableContext, Environment
 	
 	public function addValue(string $name, $value, $canBubble = false)
 	{
+		$nameParts = ParamParser::splitOnly($name, false, ['.', '[', ']']);
+		if (count($nameParts) > 1) {
+			$name = $nameParts[0];
+			if ($nameParts[1][0] == '[') {
+				$nameParts[1] = substr($nameParts[1], 1, -1);
+			}
+		} else if (substr($name, -2) == '[]') {
+			$nameParts[1] = '';
+			$name = substr($name, 0, -2);
+		}
+		
 		if ($canBubble) {
 			$stackPos = $this->findContextForIdentifier($name);
 		} else {
 			$stackPos = count($this->stack) - 1;
 		}
-		$this->stack[$stackPos][$name] = $value;
+		
+		if (count($nameParts) > 1) {
+			if (empty($this->stack[$stackPos][$name])) {
+				if (strlen($nameParts[1]) > 0) {
+					$this->stack[$stackPos][$name] = [$nameParts[1] => $value];
+				} else {
+					$this->stack[$stackPos][$name] = [$value];
+				}
+			} else if (!is_array($this->stack[$stackPos][$name])) {
+				throw new \Exception('Cannot add value to non-array: ' . $name);
+			} else if (strlen($nameParts[1]) > 0) {
+				$this->stack[$stackPos][$name][$nameParts[1]] = $value;
+			} else {
+				$this->stack[$stackPos][$name][] = $value;
+			}
+		} else {
+			$this->stack[$stackPos][$name] = $value;
+		}
 	}
 	
 	private function findContextForIdentifier($name)
