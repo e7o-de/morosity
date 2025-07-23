@@ -386,4 +386,9 @@ class Functions
 	{
 		return !((bool)$param[0] ?? $value);
 	}
+	
+	public static function dummy(&$value, &$param)
+	{
+		return $value;
+	}
 }
