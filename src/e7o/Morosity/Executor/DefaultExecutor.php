@@ -19,6 +19,7 @@ class DefaultExecutor implements ExecutionContext
 	// Execution
 	private $parsed;
 	private $currentLoops;
+	private $ifDeep;
 	private $ifHadMatch;
 	private $macros;
 	private $includedMacros;
@@ -49,6 +50,7 @@ class DefaultExecutor implements ExecutionContext
 		
 		$this->currentLoops = [];
 		$this->ifHadMatch = [];
+		$this->ifDeep = 0;
 		$this->macros = [];
 		$this->includedMacros = [];
 		$this->switchHadMatch = [];
@@ -62,7 +64,6 @@ class DefaultExecutor implements ExecutionContext
 		$ignoreTillNextIfKeyword = [];
 		$ignoreIfMode = false;
 		$ignoreDeeperIfKeywords = 0;
-		$ifDeep = 0;
 		$ignoreTillNextSwitchKeyword = [];
 		$ignoreSwitchMode = false;
 		$ignoreDeeperSwitchKeywords = 0;
@@ -127,27 +128,27 @@ class DefaultExecutor implements ExecutionContext
 						$ignoreDeeperIfKeywords++;
 					} else {
 						// Add new IF to stack
-						$ifDeep++;
-						$this->ifHadMatch[$ifDeep] = false;
-						$ignoreTillNextIfKeyword[$ifDeep] = false;
+						$this->ifDeep++;
+						$this->ifHadMatch[$this->ifDeep] = false;
+						$ignoreTillNextIfKeyword[$this->ifDeep] = false;
 						$ignoreIfMode = false;
 					}
 				case Tokens::CONDITION_ELSEIF:
 				case Tokens::CONDITION_ELSE:
 					if ($ignoreDeeperIfKeywords <= 0) {
 						// Set ignore to true in advance
-						$ignoreTillNextIfKeyword[$ifDeep] = true;
+						$ignoreTillNextIfKeyword[$this->ifDeep] = true;
 						$ignoreIfMode = true;
 						// When this if not matched yet
-						if (!$this->ifHadMatch[$ifDeep]) {
+						if (!$this->ifHadMatch[$this->ifDeep]) {
 							// Process conditions
 							$match = $this->checkConditions($commandParams);
 							// Match :)
 							if ($match) {
 								// We had a match, remember this
-								$this->ifHadMatch[$ifDeep] = true;
+								$this->ifHadMatch[$this->ifDeep] = true;
 								// Don't ignore this block
-								$ignoreTillNextIfKeyword[$ifDeep] = false;
+								$ignoreTillNextIfKeyword[$this->ifDeep] = false;
 								$ignoreIfMode = false;
 							}
 						}
@@ -158,13 +159,13 @@ class DefaultExecutor implements ExecutionContext
 						$ignoreDeeperIfKeywords--;
 					} else {
 						// Remove from stack
-						$this->ifHadMatch[$ifDeep] = null;
-						$ignoreTillNextIfKeyword[$ifDeep] = null;
-						$ifDeep--;
-						if (!isset($ignoreTillNextIfKeyword[$ifDeep])) {
+						$this->ifHadMatch[$this->ifDeep] = null;
+						$ignoreTillNextIfKeyword[$this->ifDeep] = null;
+						$this->ifDeep--;
+						if (!isset($ignoreTillNextIfKeyword[$this->ifDeep])) {
 							$ignoreIfMode = false;
 						} else {
-							$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$ifDeep];
+							$ignoreIfMode = !empty($ignoreTillNextIfKeyword) && $ignoreTillNextIfKeyword[$this->ifDeep];
 						}
 					}
 					break;
