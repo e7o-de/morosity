@@ -58,6 +58,7 @@ class Processor implements VariableContext, Environment
 			$name = $nameParts[0];
 			if ($nameParts[1][0] == '[') {
 				$nameParts[1] = substr($nameParts[1], 1, -1);
+				$nameParts[1] = $this->evaluateExpression($nameParts[1]);
 			}
 		} else if (substr($name, -2) == '[]') {
 			$nameParts[1] = '';
