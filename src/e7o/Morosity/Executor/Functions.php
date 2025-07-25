@@ -7,6 +7,7 @@ class Functions
 	private static $alias = [
 		'e' => 'encode',
 		'split' => 'explode',
+		'chop' => 'trim',
 		'join' => 'implode',
 		'len' => 'count',
 		'length' => 'count',
@@ -92,6 +93,11 @@ class Functions
 	public static function lowercase(&$value, &$param)
 	{
 		return strtolower($value);
+	}
+	
+	public static function trim(&$value, &$param)
+	{
+		return trim($value);
 	}
 	
 	public static function rot13(&$value, &$param)
