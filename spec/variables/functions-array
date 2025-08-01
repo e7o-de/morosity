@@ -8,11 +8,13 @@ Some more advanced functions related to arrays and strings
 {% if as|cut(1) == "a" %}yes{% else %}no{% endif %}
 {{ b[["s", "u", "b"]|join] }}
 {% import 'dummy.macro' as abc %}{{ abc.dummy(concat('test:', a[2])) }}
+{% for k,v in gr|group('key') %}{{ k }}{% for w in v %}{{ w.val }}{% endfor %}{% endfor %}
 ------------------------------------------------------------------------------
 {
 	"a": ["a", "b", "c", "d", "e", "f", "g"],
 	"as": "abcde",
-	"b": {"sub": "abc"}
+	"b": {"sub": "abc"},
+	"gr": [{"key": "odd", "val": 1}, {"key": "even", "val": 2}, {"key": "odd", "val": 3}, {"key": "even", "val": 4}]
 }
 ------------------------------------------------------------------------------
 ade-ag
@@ -22,3 +24,4 @@ ab-a,b,c
 yes
 abc
 -test:c-
+odd13even24

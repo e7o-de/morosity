@@ -76,6 +76,19 @@ class Functions
 		}
 	}
 	
+	public static function group(&$value, &$param)
+	{
+		$grouped = [];
+		foreach ($value as $k => $v) {
+			$group = $v[$param[0]] ?? '_';
+			if (empty($grouped[$group])) {
+				$grouped[$group] = [];
+			}
+			$grouped[$group][$k] = $v;
+		}
+		return $grouped;
+	}
+	
 	public static function dump(&$value, &$param)
 	{
 		$value = str_replace('=>', '', print_r($value, true));
